@@ -1,0 +1,900 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Calendar, 
+  MapPin, 
+  Waves, 
+  Anchor, 
+  DollarSign, 
+  Settings, 
+  Plus, 
+  Trash2, 
+  Save, 
+  History, 
+  ChevronDown,
+  Fish,
+  Navigation,
+  AlertCircle,
+  ExternalLink,
+  FileText,
+  Camera,
+  Image as ImageIcon,
+  Map,
+  Cloud,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  Users,
+  ShoppingBag
+} from 'lucide-react';
+
+export default function App() {
+  // --- 狀態管理 (State Management) ---
+  
+  const [currentView, setCurrentView] = useState('form');
+  
+  // 1. 紀錄資料
+  const [logs, setLogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('harvestLogs');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+
+  // 2. 選項設定 (加入自動修復邏輯)
+  const [options, setOptions] = useState(() => {
+    const defaultOptions = {
+      products: ['石斑', '紅蟳', '文蛤', '牡蠣'],
+      sizes: ['特大', '大', '中', '小', '規格外'],
+      quantities: ['1 簍', '5 斤', '10 斤', '20 斤', '1 隻'],
+      tideTypes: ['大潮', '小潮', '長潮', '若潮'],
+      buyers: ['餐廳', '魚販', '零售', '自用', '盤商']
+    };
+
+    try {
+      const saved = localStorage.getItem('harvestOptions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // 強制合併：確保舊資料若缺少 buyers，會自動補上預設值，防止當機
+        return {
+          products: parsed.products || defaultOptions.products,
+          sizes: parsed.sizes || defaultOptions.sizes,
+          quantities: parsed.quantities || defaultOptions.quantities,
+          tideTypes: parsed.tideTypes || defaultOptions.tideTypes,
+          buyers: parsed.buyers || defaultOptions.buyers 
+        };
+      }
+      return defaultOptions;
+    } catch (e) {
+      return defaultOptions;
+    }
+  });
+
+  // Google Script URL (已更新為您的專屬網址)
+  const [scriptUrl, setScriptUrl] = useState(() => {
+    // 優先使用這組預設網址，除非使用者手動在 localStorage 改過
+    return localStorage.getItem('harvestScriptUrl') || 'https://script.google.com/macros/s/AKfycbxznCVO1QALHtUUJGbK1vYGW6AFieqnxgGqlkPgN6y2ZckSrpXUIEQNuGoGpQ4zlwzJFw/exec';
+  });
+
+  // 表單資料
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    location: '',
+    tideRegion: '', 
+    specificSpot: '', 
+    tideType: '大潮',
+    relativeHeight: '',
+    buyer: '',
+    costTransport: '',
+    costToll: '',
+    costOther: '',
+    notes: ''
+  });
+
+  // 收穫資料陣列 (固定 5 筆)
+  const [harvests, setHarvests] = useState(
+    Array(5).fill().map(() => ({ product: '', size: '', quantity: '' }))
+  );
+
+  // 照片與其他狀態
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const [locationStatus, setLocationStatus] = useState('idle'); 
+  const [locationError, setLocationError] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('idle');
+
+  // --- 效果 (Effects) ---
+  
+  useEffect(() => {
+    localStorage.setItem('harvestLogs', JSON.stringify(logs));
+  }, [logs]);
+
+  useEffect(() => {
+    localStorage.setItem('harvestOptions', JSON.stringify(options));
+  }, [options]);
+
+  useEffect(() => {
+    localStorage.setItem('harvestScriptUrl', scriptUrl);
+  }, [scriptUrl]);
+
+  // 初始化預設出貨對象
+  useEffect(() => {
+    // 安全檢查：確保 buyers 存在才讀取
+    const buyers = options.buyers || [];
+    if (!formData.buyer && buyers.length > 0) {
+      setFormData(prev => ({ ...prev, buyer: buyers[0] }));
+    }
+  }, [options]);
+
+  // --- 功能函數 ---
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleHarvestChange = (index, field, value) => {
+    const newHarvests = [...harvests];
+    newHarvests[index] = { ...newHarvests[index], [field]: value };
+    setHarvests(newHarvests);
+  };
+
+  const getLocation = () => {
+    setLocationStatus('loading');
+    setLocationError('');
+
+    if (!navigator.geolocation) {
+      setLocationStatus('error');
+      setLocationError('裝置不支援');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const locString = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        setFormData(prev => ({ ...prev, location: locString }));
+        setLocationStatus('success');
+      },
+      (error) => {
+        console.error("Geo Error:", error);
+        setLocationStatus('error');
+        let msg = '定位失敗';
+        if(error.code === 1) msg = '權限被拒';
+        else if(error.code === 2) msg = '無法取得位置';
+        else if(error.code === 3) msg = '定位逾時';
+        setLocationError(msg);
+      }
+    );
+  };
+
+  const openGoogleMaps = () => {
+    window.open('https://www.google.com/maps', '_blank');
+  };
+
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = reader.result.split(',')[1];
+        resolve({
+          base64: base64String,
+          mimeType: file.type,
+          fileName: file.name
+        });
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // --- 提交 ---
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setUploadStatus('uploading');
+
+    // 整理收穫
+    const validHarvests = harvests.filter(h => h.product && h.product.trim() !== '');
+    
+    // 合併字串供 Google Sheet 使用
+    const productStr = validHarvests.map(h => h.product).join('\n');
+    const sizeStr = validHarvests.map(h => h.size).join('\n');
+    const quantityStr = validHarvests.map(h => h.quantity).join('\n');
+    
+    // 摘要文字
+    const mainProduct = validHarvests.length > 0 ? validHarvests[0].product : '未分類';
+    const summaryText = validHarvests.length > 1 ? `${mainProduct}等${validHarvests.length}樣` : mainProduct;
+
+    const timestamp = new Date().toLocaleString();
+    let cloudSynced = false;
+
+    // 準備資料
+    const newLog = {
+      id: Date.now(),
+      timestamp,
+      ...formData,
+      product: productStr,
+      size: sizeStr,
+      quantity: quantityStr,
+      displaySummary: summaryText,
+      rawHarvests: validHarvests,
+      hasPhoto: !!photoFile,
+      cloudSynced: false
+    };
+
+    // 上傳雲端
+    if (scriptUrl) {
+      try {
+        let imageData = null;
+        if (photoFile) {
+          imageData = await fileToBase64(photoFile);
+        }
+
+        const payload = {
+          ...newLog,
+          product: productStr || '(無)',
+          size: sizeStr || '-',
+          quantity: quantityStr || '-',
+          // 將出貨對象加入備註前綴，方便在現有表格查看
+          notes: `[對象:${formData.buyer}] ${formData.notes}`,
+          imageBase64: imageData ? imageData.base64 : '',
+          imageMimeType: imageData ? imageData.mimeType : '',
+        };
+
+        await fetch(scriptUrl, {
+          method: 'POST',
+          mode: 'no-cors', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        cloudSynced = true;
+        newLog.cloudSynced = true;
+        alert('資料已發送至 Google Sheets！');
+
+      } catch (error) {
+        console.error("Upload failed:", error);
+        alert('上傳 Google 失敗，僅儲存於本地。');
+      }
+    } else {
+      alert('紀錄已儲存！(僅存於手機)');
+    }
+
+    setLogs([newLog, ...logs]);
+    setUploadStatus('idle');
+
+    // 重置
+    setFormData(prev => ({
+      ...prev,
+      costTransport: '',
+      costToll: '',
+      costOther: '',
+      notes: ''
+    }));
+    setHarvests(Array(5).fill().map(() => ({ product: '', size: '', quantity: '' })));
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setCurrentView('history');
+  };
+
+  const deleteLog = (id) => {
+    if (confirm('確定要刪除這筆紀錄嗎？')) {
+      setLogs(logs.filter(log => log.id !== id));
+    }
+  };
+
+  // 選項操作
+  const addOption = (category, value) => {
+    if (!value.trim()) return;
+    setOptions(prev => ({
+      ...prev,
+      [category]: [...(prev[category] || []), value]
+    }));
+  };
+
+  const removeOption = (category, index) => {
+    setOptions(prev => ({
+      ...prev,
+      [category]: (prev[category] || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const openTideUrl = () => {
+    const url = "https://www.cwa.gov.tw/V8/C/M/tide.html";
+    const newWindow = window.open(url, '_blank');
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+      prompt("瀏覽器封鎖了彈出視窗，請複製以下網址自行開啟：", url);
+    }
+  };
+
+  // --- 子組件 ---
+
+  const SettingsSection = ({ title, category, icon: Icon }) => {
+    const [newValue, setNewValue] = useState('');
+    // 安全讀取選項陣列
+    const items = options[category] || [];
+
+    return (
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-4">
+        <div className="flex items-center gap-2 mb-3 text-slate-700 font-semibold">
+          <Icon size={18} />
+          <span>{title}設定</span>
+        </div>
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={newValue}
+            onChange={(e) => setNewValue(e.target.value)}
+            placeholder={`新增${title}...`}
+            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <button 
+            onClick={() => { addOption(category, newValue); setNewValue(''); }}
+            className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"
+          >
+            <Plus size={20} />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {items.map((item, index) => (
+            <span key={index} className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm flex items-center gap-2">
+              {item}
+              <button onClick={() => removeOption(category, index)} className="text-slate-400 hover:text-red-500">
+                <span className="font-bold">×</span>
+              </button>
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // --- 主畫面 ---
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-800">
+      
+      {/* Header */}
+      <header className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 shadow-lg sticky top-0 z-50">
+        <div className="flex justify-between items-center max-w-3xl mx-auto">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Anchor className="text-cyan-200" />
+            漁獲採集日誌
+          </h1>
+          <div className="text-xs bg-white/20 px-2 py-1 rounded-full">
+            {new Date().toLocaleDateString()}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto p-4">
+        
+        {/* VIEW: 表單輸入 (Form) */}
+        {currentView === 'form' && (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* 1. 日期與地點 */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
+                <MapPin size={16} /> 基礎資訊
+              </div>
+              <div className="p-4 grid gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">日期</label>
+                  <div className="relative">
+                    <input 
+                      type="date" 
+                      name="date"
+                      required
+                      value={formData.date}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 pl-10 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <Calendar className="absolute left-3 top-3.5 text-slate-400" size={18} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">作業地點</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      name="location"
+                      placeholder="手動輸入或點擊定位"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <button 
+                      type="button"
+                      onClick={getLocation}
+                      disabled={locationStatus === 'loading'}
+                      className={`px-3 rounded-xl flex items-center gap-1 transition-colors justify-center ${locationStatus === 'loading' ? 'bg-slate-200 text-slate-500' : 'bg-cyan-600 text-white active:bg-cyan-700'}`}
+                    >
+                      {locationStatus === 'loading' ? <span className="animate-spin">⌛</span> : <Navigation size={18} />}
+                      <span className="text-sm">定位</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={openGoogleMaps}
+                      className="px-3 rounded-xl bg-slate-200 text-slate-600 active:bg-slate-300 flex items-center gap-1"
+                      title="開啟 Google Maps 查看位置"
+                    >
+                      <Map size={18} />
+                    </button>
+                  </div>
+                  
+                  {locationStatus === 'success' && (
+                    <p className="text-xs text-green-600 mt-2 flex items-center gap-1 animate-pulse">
+                      <span className="bg-green-100 p-0.5 rounded-full">✓</span> 定位成功
+                    </p>
+                  )}
+                  {locationStatus === 'error' && (
+                    <div className="mt-2 text-xs">
+                      <p className="text-red-500 flex items-center gap-1">
+                        <AlertCircle size={14} /> {locationError}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* 2. 環境水文 */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium justify-between">
+                <div className="flex items-center gap-2">
+                  <Waves size={16} /> 環境水文
+                </div>
+                <button 
+                  type="button"
+                  onClick={openTideUrl}
+                  className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-blue-200 transition-colors active:bg-blue-300"
+                >
+                  <ExternalLink size={14} /> 查詢潮汐
+                </button>
+              </div>
+              <div className="p-4 grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 mb-1">潮差地區 (大範圍)</label>
+                  <input 
+                    type="text" 
+                    name="tideRegion"
+                    placeholder="例如：鹿港外海、王功"
+                    value={formData.tideRegion}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">大小潮</label>
+                  <div className="relative">
+                    <select 
+                      name="tideType"
+                      value={formData.tideType}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 appearance-none focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      {options.tideTypes?.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-4 text-slate-400 pointer-events-none" size={16} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">相對高度</label>
+                  <input 
+                    type="text" 
+                    name="relativeHeight"
+                    placeholder="例如：+1.5m"
+                    value={formData.relativeHeight}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-slate-500 mb-1">潮差地區 (細部地點/地標)</label>
+                  <input 
+                    type="text" 
+                    name="specificSpot"
+                    placeholder="例如：3號蚵棚、北堤旁"
+                    value={formData.specificSpot}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* 3. 收穫成果 (重複 5 次) */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-green-500">
+              <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-slate-600 font-medium">
+                <div className="flex items-center gap-2"><Fish size={16} /> 收穫成果 (最多5項)</div>
+                <span className="text-xs text-slate-400">選項於設定新增</span>
+              </div>
+              <div className="p-4 space-y-6">
+                
+                {harvests.map((item, index) => (
+                  <div key={index} className="relative bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div className="absolute -top-2 -left-2 bg-green-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-sm">
+                      {index + 1}
+                    </div>
+                    
+                    <div className="grid gap-3">
+                      {/* 品名 */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-400 mb-1">品名</label>
+                        <div className="relative">
+                          <select 
+                            value={item.product}
+                            onChange={(e) => handleHarvestChange(index, 'product', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 appearance-none focus:ring-2 focus:ring-green-500 outline-none text-slate-700"
+                          >
+                            <option value="">(無)</option>
+                            {options.products?.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-3 text-slate-300 pointer-events-none" size={14} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* 大小 */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1">規格</label>
+                          <div className="relative">
+                            <select 
+                              value={item.size}
+                              onChange={(e) => handleHarvestChange(index, 'size', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 appearance-none focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                            >
+                              <option value="">選擇規格</option>
+                              {options.sizes?.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3 text-slate-300 pointer-events-none" size={14} />
+                          </div>
+                        </div>
+                        {/* 數量 */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1">數量</label>
+                          <div className="relative">
+                            <select 
+                              value={item.quantity}
+                              onChange={(e) => handleHarvestChange(index, 'quantity', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 appearance-none focus:ring-2 focus:ring-green-500 outline-none text-sm"
+                            >
+                              <option value="">選擇數量</option>
+                              {options.quantities?.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3 text-slate-300 pointer-events-none" size={14} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* 照片上傳區 */}
+                <div className="mt-2 border-t border-slate-100 pt-4">
+                  <label className="block text-xs font-bold text-slate-500 mb-2">現場照片 (將上傳至 Drive)</label>
+                  
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    ref={fileInputRef}
+                    onChange={handlePhotoSelect}
+                    className="hidden" 
+                  />
+
+                  {!photoPreview ? (
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-500 transition-colors gap-2"
+                    >
+                      <Camera size={32} />
+                      <span className="text-sm font-medium">拍攝 / 選擇照片</span>
+                    </button>
+                  ) : (
+                    <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                      <img src={photoPreview} alt="Preview" className="w-full h-48 object-cover" />
+                      <button 
+                        type="button"
+                        onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
+                  {scriptUrl ? (
+                    <p className="text-[10px] text-green-600 mt-2 text-center flex items-center justify-center gap-1">
+                      <CheckCircle size={10} /> 將於儲存時自動上傳至 Google Drive
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-red-400 mt-2 text-center flex items-center justify-center gap-1">
+                      <AlertCircle size={10} /> 未設定雲端網址，照片僅供預覽不會上傳
+                    </p>
+                  )}
+                </div>
+
+              </div>
+            </section>
+
+            {/* 4. 出貨對象 & 成本 (新增區域) */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-orange-400">
+              <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
+                <ShoppingBag size={16} /> 銷售與成本
+              </div>
+              <div className="p-4 space-y-4">
+                
+                {/* 出貨對象 */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
+                    <Users size={12} /> 出貨對象
+                  </label>
+                  <div className="relative">
+                    <select 
+                      name="buyer"
+                      value={formData.buyer}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 appearance-none focus:ring-2 focus:ring-orange-400 outline-none font-medium text-slate-700"
+                    >
+                      <option value="" disabled>請選擇對象</option>
+                      {options.buyers?.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-4 text-slate-400 pointer-events-none" size={16} />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 my-2"></div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">車資(油錢)</label>
+                    <input 
+                      type="number" 
+                      name="costTransport"
+                      placeholder="0"
+                      value={formData.costTransport}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right focus:ring-2 focus:ring-red-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">過路費</label>
+                    <input 
+                      type="number" 
+                      name="costToll"
+                      placeholder="0"
+                      value={formData.costToll}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right focus:ring-2 focus:ring-red-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">其他</label>
+                    <input 
+                      type="number" 
+                      name="costOther"
+                      placeholder="0"
+                      value={formData.costOther}
+                      onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right focus:ring-2 focus:ring-red-400 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 5. 備註 */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
+                <FileText size={16} /> 備註
+              </div>
+              <div className="p-4">
+                <textarea
+                  name="notes"
+                  placeholder="輸入其他備註事項..."
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
+                />
+              </div>
+            </section>
+
+            <button 
+              type="submit" 
+              disabled={uploadStatus === 'uploading'}
+              className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg ${uploadStatus === 'uploading' ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-blue-200'}`}
+            >
+              {uploadStatus === 'uploading' ? (
+                <>
+                  <Loader2 size={24} className="animate-spin" />
+                  上傳資料中...
+                </>
+              ) : (
+                <>
+                  <Save size={24} />
+                  儲存紀錄 {scriptUrl && '& 同步雲端'}
+                </>
+              )}
+            </button>
+            <div className="h-4"></div>
+          </form>
+        )}
+
+        {/* VIEW: 設定 (Settings) */}
+        {currentView === 'settings' && (
+          <div className="animate-fade-in">
+            <h2 className="text-xl font-bold mb-4 text-slate-700">選單設定</h2>
+            
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 border-l-4 border-l-blue-500">
+              <div className="flex items-center gap-2 mb-2 text-blue-800 font-bold">
+                <Cloud size={18} />
+                <span>雲端同步設定 (Google Sheets)</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                請輸入您的「Apps Script 網頁應用程式網址」以啟用自動上傳。
+              </p>
+              <input 
+                type="text" 
+                placeholder="https://script.google.com/macros/s/..."
+                value={scriptUrl}
+                onChange={(e) => setScriptUrl(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-2"
+              />
+            </div>
+
+            <SettingsSection title="產品 (品名)" category="products" icon={Fish} />
+            <SettingsSection title="規格 (大小)" category="sizes" icon={Waves} />
+            <SettingsSection title="數量 (單位)" category="quantities" icon={Anchor} />
+            <SettingsSection title="潮汐種類" category="tideTypes" icon={Waves} />
+            <SettingsSection title="出貨對象" category="buyers" icon={Users} />
+          </div>
+        )}
+
+        {/* VIEW: 歷史紀錄 (History) */}
+        {currentView === 'history' && (
+          <div className="space-y-4 animate-fade-in">
+             <h2 className="text-xl font-bold mb-4 text-slate-700 flex justify-between items-center">
+               <span>歷史紀錄 ({logs.length})</span>
+               <button onClick={() => {if(confirm('清除所有紀錄?')) setLogs([])}} className="text-xs text-red-400 font-normal">清除全部</button>
+             </h2>
+             
+             {logs.length === 0 ? (
+               <div className="text-center py-10 text-slate-400">
+                 <History size={48} className="mx-auto mb-2 opacity-50" />
+                 <p>尚無紀錄</p>
+               </div>
+             ) : (
+               logs.map(log => {
+                 const totalCost = Number(log.costTransport || 0) + Number(log.costToll || 0) + Number(log.costOther || 0);
+                 return (
+                   <div key={log.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative group">
+                     <button 
+                       onClick={() => deleteLog(log.id)}
+                       className="absolute top-4 right-4 text-slate-300 hover:text-red-500"
+                     >
+                       <Trash2 size={18} />
+                     </button>
+
+                     <div className="flex items-baseline justify-between mb-2 pr-8">
+                       <h3 className="text-lg font-bold text-blue-800">{log.displaySummary || log.product}</h3>
+                       <span className="text-sm font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{log.date}</span>
+                     </div>
+                     
+                     <div className="mb-3">
+                       {log.cloudSynced ? (
+                         <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
+                           <CheckCircle size={10} /> 已同步雲端
+                         </span>
+                       ) : (
+                         <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                           <XCircle size={10} /> 僅存本地
+                         </span>
+                       )}
+                     </div>
+
+                     {/* 顯示詳細收穫清單 */}
+                     <div className="bg-slate-50 p-2 rounded-lg mb-3 text-sm text-slate-600 space-y-1">
+                       {log.rawHarvests && log.rawHarvests.length > 0 ? (
+                         log.rawHarvests.map((h, idx) => (
+                           <div key={idx} className="flex justify-between border-b border-slate-100 last:border-0 pb-1 last:pb-0">
+                             <span className="font-medium">{h.product}</span>
+                             <span className="text-slate-500">{h.size} / {h.quantity}</span>
+                           </div>
+                         ))
+                       ) : (
+                         // 舊資料兼容
+                         <div className="flex justify-between">
+                            <span className="font-medium">{log.product}</span>
+                            <span className="text-slate-500">{log.size} / {log.quantity}</span>
+                         </div>
+                       )}
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-y-2 text-sm text-slate-600 mb-3">
+                       <div><span className="text-slate-400 text-xs">對象:</span> {log.buyer || '(未填)'}</div>
+                       <div><span className="text-slate-400 text-xs">地點:</span> {log.tideRegion}</div>
+                       <div><span className="text-slate-400 text-xs">細部:</span> {log.specificSpot}</div>
+                       <div><span className="text-slate-400 text-xs">潮汐:</span> {log.tideType}</div>
+                     </div>
+                     
+                     {log.hasPhoto && (
+                       <div className="mb-2 inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">
+                         <ImageIcon size={12} /> 有照片
+                       </div>
+                     )}
+
+                     {log.notes && (
+                       <div className="border-t border-slate-100 pt-2 mt-2 text-sm text-slate-500">
+                         <span className="text-xs text-slate-400 block mb-1">備註:</span>
+                         {log.notes}
+                       </div>
+                     )}
+
+                     {totalCost > 0 && (
+                       <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between items-center text-sm">
+                         <span className="text-slate-400">總成本</span>
+                         <span className="font-bold text-red-500 flex items-center">
+                           <DollarSign size={14} /> {totalCost}
+                         </span>
+                       </div>
+                     )}
+                   </div>
+                 );
+               })
+             )}
+          </div>
+        )}
+
+      </main>
+
+      {/* 底部導航列 */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe-area shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+        <div className="max-w-3xl mx-auto flex justify-around p-2">
+          <button 
+            onClick={() => setCurrentView('form')}
+            className={`p-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors w-20 ${currentView === 'form' ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <Plus size={24} />
+            <span>記一筆</span>
+          </button>
+          
+          <button 
+            onClick={() => setCurrentView('history')}
+            className={`p-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors w-20 ${currentView === 'history' ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <History size={24} />
+            <span>紀錄</span>
+          </button>
+
+          <button 
+            onClick={() => setCurrentView('settings')}
+            className={`p-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors w-20 ${currentView === 'settings' ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <Settings size={24} />
+            <span>設定</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile Safe Area Spacer for bottom nav */}
+      <div className="pb-6"></div> 
+    </div>
+  );
+}
