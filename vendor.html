@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>漁獲訂購單</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style> * { -webkit-tap-highlight-color: transparent; } body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; } </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+        const Icon = ({ path, size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
+        
+        const icons = {
+            User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
+            Fish: <g><path d="M6.5 12c.94-2.08 2.38-3.97 4.14-5.38A12.03 12.03 0 0 1 12 6c5.52 0 10 4.48 10 10s-4.48 10-10 10-10-4.48-10-10c0-.17.01-.33.03-.5.5 0 1-.5 1.5-1"/><path d="M17.8 16.37a4 4 0 0 0-2.17-3.17"/><path d="M12.92 14.3a2 2 0 0 0-1.22-1.22"/></g>,
+            Loader2: <path d="M21 12a9 9 0 1 1-6.219-8.56" />,
+            Trash2: <g><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></g>,
+            Send: <g><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></g>,
+            Plus: <g><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></g>,
+            ChevronDown: <polyline points="6 9 12 15 18 9"/>,
+            Filter: <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+        };
+        const Lucide = (name, props) => <Icon path={icons[name]} {...props} />;
+
+        function VendorApp() {
+            // 固定參數：您的 Google Apps Script 網址
+            const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxznCVO1QALHtUUJGbK1vYGW6AFieqnxgGqlkPgN6y2ZckSrpXUIEQNuGoGpQ4zlwzJFw/exec';
+            
+            // --- 依照您的最新清單設定分類 ---
+            const defaultCategories = {
+                "淡水水域": {
+                    "溪魚": ["馬口", "苦花", "石賓", "紅貓", "清貓(日本貓)"],
+                    "短尾": ["混血小䰾", "野生孔雀", "台灣石鮒", "齊式石鮒", "高體鰟鮍"],
+                    "長尾": ["蓋斑鬥魚(非原生)", "三星鬥魚", "劍尾魚", "鴛鴦魚"],
+                    "底棲": ["小瓢鉤", "櫻口鰍", "泥鰍", "花鰍"],
+                    "蝦虎": ["短吻紅斑(白尾)", "陽明山吻", "明潭吻蝦虎", "黑旗枝枒蝦虎", "紫身枝枒蝦虎", "環帶黃瓜蝦虎", "日本禿頭鯊蝦虎", "兔首禿頭鯊蝦虎"],
+                    "蝦類/其他": ["七星米蝦", "黑殼蝦", "紅華娘", "原生鯉(?)"]
+                },
+                "汽化水域(可淡化)": {
+                    "小型魚": ["大口湯鯉", "金錢魚(變身苦)", "銀鯧", "海水茉莉", "擬鯉短塘鱧", "台灣吻蝦虎"],
+                    "蝦虎": ["棕塘鱧", "頭孔塘鱧", "無孔塘鱧", "鶯哥鯊蝦虎", "種子鯊蝦虎", "硬皮諸神島蝦虎", "克利米蝦虎", "拜庫雷蝦虎", "阿部氏鯔鰕虎", "裸身蝦虎", "粘皮鯔鰕虎", "寬帶裸身蝦虎", "黑鰭枝牙蝦虎", "褐吻蝦虎", "極樂吻蝦虎", "明潭吻蝦虎", "短吻紅斑蝦虎", "細斑吻蝦虎", "斑帶吻蝦虎", "恆春吻蝦虎", "蘭嶼吻蝦虎", "曙首厚脣鯊", "寬頰瓢鰭蝦虎", "兔頭瓢鰭蝦虎", "日本禿頭鯊", "台灣縱紋獅子魚"],
+                    "洄游蝦": ["貪食藻蝦", "刺足藻蝦", "絨掌藻蝦", "忍者蝦/貴賓蝦", "蜜蜂網球蝦", "石紋網球蝦", "琥珀網球蝦", "潔白長臂蝦"],
+                    "河口蝦": ["霸王槍蝦", "短鼻槍蝦"],
+                    "海龍": ["無棘海龍"],
+                    "其他": ["廣東彈塗魚", "溪鯉(季節限定)"]
+                },
+                "出海口/半水陸": {
+                    "海苗": ["花身", "紅糟", "條紋豆娘"],
+                    "螃蟹": ["拉拉蟹", "顯齒澤蟹", "肥胖相手蟹", "帝王仿相手蟹", "紅螯螳臂蟹", "宮崎澤蟹", "灰白陸寄居蟹", "海寄居蟹"],
+                    "特殊": ["斑點竿鯊"],
+                    "其他": ["石蟳苗", "麵包蟹苗", "中國樹蟾", "淡水石狗公"]
+                }
+            };
+            const units = ['隻', '台斤', '公斤', '簍', '箱', '籃', '尾', '個'];
+
+            const [vendorName, setVendorName] = useState('');
+            const [categories, setCategories] = useState(defaultCategories);
+            // 預設 3 行
+            const [items, setItems] = useState([
+                { category: '', subCategory: '', product: '', quantity: '', unit: '隻' },
+                { category: '', subCategory: '', product: '', quantity: '', unit: '隻' },
+                { category: '', subCategory: '', product: '', quantity: '', unit: '隻' }
+            ]);
+            const [uploadStatus, setUploadStatus] = useState('idle');
+
+            useEffect(() => {
+                const savedName = localStorage.getItem('lastVendorName');
+                if (savedName) setVendorName(savedName);
+                // 嘗試讀取老闆設定的同步分類 (同網域下有效)
+                try {
+                    const synced = localStorage.getItem('vendorCategories');
+                    if (synced) {
+                        const parsed = JSON.parse(synced);
+                        setCategories(prev => ({...prev, ...parsed}));
+                    }
+                } catch(e){}
+            }, []);
+
+            const handleItemChange = (i, f, v) => {
+                const n = [...items];
+                if (f === 'category') { n[i].category=v; n[i].subCategory=''; n[i].product=''; }
+                else if (f === 'subCategory') { n[i].subCategory=v; n[i].product=''; }
+                else n[i][f]=v;
+                setItems(n);
+            };
+            const addItemRow = () => setItems([...items, { category: '', subCategory: '', product: '', quantity: '', unit: '隻' }]);
+            const removeItemRow = (idx) => setItems(items.filter((_, i) => i !== idx));
+
+            const handleSubmit = async () => {
+                if (!vendorName) return alert('請填寫廠商名稱');
+                const validItems = items.filter(i => i.product);
+                if (validItems.length === 0) return alert('請至少填寫一項');
+                
+                setUploadStatus('uploading');
+                localStorage.setItem('lastVendorName', vendorName);
+                const productStr = validItems.map(i => `${i.product} (${i.subCategory})`).join('\n');
+                const quantityStr = validItems.map(i => `${i.quantity} ${i.unit}`).join('\n');
+                
+                try {
+                    await fetch(SCRIPT_URL, {
+                        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            timestamp: new Date().toLocaleString(), date: new Date().toISOString().split('T')[0],
+                            product: productStr, quantity: quantityStr, notes: `[廠商:${vendorName}] 訂購單`,
+                            location: '-', size: '-', tideRegion: '-', specificSpot: '-', tideType: '-', relativeHeight: '-', costTransport: '', costToll: '', costOther: '', imageBase64: '', imageMimeType: ''
+                        })
+                    });
+                    setUploadStatus('success'); alert('下單成功！');
+                    setItems([{ category: '', subCategory: '', product: '', quantity: '', unit: '隻' },{ category: '', subCategory: '', product: '', quantity: '', unit: '隻' },{ category: '', subCategory: '', product: '', quantity: '', unit: '隻' }]);
+                    setTimeout(() => setUploadStatus('idle'), 2000);
+                } catch (err) { console.error(err); alert('失敗'); setUploadStatus('idle'); }
+            };
+
+            return (
+                <div className="min-h-screen pb-20 bg-slate-50">
+                    <header className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 shadow-lg sticky top-0 z-50">
+                        <h1 className="text-xl font-bold flex items-center justify-center gap-2">{Lucide('Fish', {size: 24})} 漁獲訂購單</h1>
+                    </header>
+                    <main className="max-w-md mx-auto p-4 space-y-6">
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <label className="block text-sm font-bold text-slate-600 mb-2">廠商名稱 / 聯絡人</label>
+                            <div className="relative">
+                                <input type="text" placeholder="請輸入您的大名" value={vendorName} onChange={e=>setVendorName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-11 text-lg font-medium outline-none focus:ring-2 focus:ring-blue-400" />
+                                <div className="absolute left-4 top-4 text-slate-400">{Lucide('User', {size: 20})}</div>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2"><h2 className="font-bold text-slate-700">訂購內容</h2><span className="text-xs text-slate-400">依序選擇分類與品項</span></div>
+                            <div className="space-y-4">
+                                {items.map((item, index) => (
+                                    <div key={index} className="bg-slate-50 p-3 rounded-xl border border-slate-200 relative">
+                                        <div className="absolute -top-2 -left-2 bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-sm z-10">{index + 1}</div>
+                                        <div className="grid grid-cols-2 gap-2 mb-2">
+                                            <div className="relative">
+                                                <select value={item.category} onChange={e=>handleItemChange(index, 'category', e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400 text-slate-700 font-medium"><option value="" disabled>1. 水域</option>{Object.keys(categories).map(c=><option key={c} value={c}>{c}</option>)}</select>
+                                                <div className="absolute right-1 top-3 text-slate-400 pointer-events-none">{Lucide('Filter', {size: 12})}</div>
+                                            </div>
+                                            <div className="relative">
+                                                <select value={item.subCategory} onChange={e=>handleItemChange(index, 'subCategory', e.target.value)} disabled={!item.category} className="w-full border rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400 font-medium bg-white"><option value="" disabled>2. 類別</option>{item.category && Object.keys(categories[item.category]).map(s=><option key={s} value={s}>{s}</option>)}</select>
+                                                <div className="absolute right-1 top-3 text-slate-400 pointer-events-none">{Lucide('ChevronDown', {size: 12})}</div>
+                                            </div>
+                                        </div>
+                                        <div className="relative mb-2">
+                                            <select value={item.product} onChange={e=>handleItemChange(index, 'product', e.target.value)} disabled={!item.subCategory} className="w-full border rounded-lg px-2 py-2 text-base outline-none focus:border-blue-400 font-bold bg-white"><option value="" disabled>3. 選擇品名</option>{item.category && item.subCategory && categories[item.category][item.subCategory].map(p=><option key={p} value={p}>{p}</option>)}</select>
+                                            <div className="absolute right-3 top-3 text-slate-400 pointer-events-none">{Lucide('ChevronDown', {size: 14})}</div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input type="number" placeholder="數量" value={item.quantity} onChange={e=>handleItemChange(index, 'quantity', e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-base outline-none focus:border-blue-400" />
+                                            <div className="relative flex items-center gap-2">
+                                                <select value={item.unit} onChange={e=>handleItemChange(index, 'unit', e.target.value)} className="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none focus:border-blue-400">{units.map(u=><option key={u} value={u}>{u}</option>)}</select>
+                                                {items.length > 1 && <button onClick={()=>removeItemRow(index)} className="text-slate-400 hover:text-red-500 p-1">{Lucide('Trash2', {size: 18})}</button>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={addItemRow} className="w-full mt-4 py-3 border-2 border-dashed border-blue-200 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-50">{Lucide('Plus', {size: 20})} 加一項</button>
+                        </div>
+                    </main>
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100">
+                        <div className="max-w-md mx-auto">
+                            <button onClick={handleSubmit} disabled={uploadStatus==='uploading'} className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2 active:scale-95 ${uploadStatus==='uploading'?'bg-slate-400':'bg-blue-600'}`}>{uploadStatus==='uploading'?<><span className="animate-spin">{Lucide('Loader2', {size: 24})}</span> 傳送中...</>:<>{Lucide('Send', {size: 24})} 送出訂單</>}</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<VendorApp />);
+    </script>
+</body>
+</html>
