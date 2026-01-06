@@ -45,7 +45,7 @@
             </svg>
         );
 
-        // 修正：使用 <g> (Group) 標籤來包裹多個 SVG 路徑，這是最穩定的 SVG 寫法
+        // 使用 <g> (Group) 標籤來包裹多個 SVG 路徑
         const icons = {
             Calendar: <path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM16 2v4M8 2v4M3 10h18" />,
             MapPin: <g><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></g>,
@@ -71,10 +71,10 @@
             XCircle: <g><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></g>,
             Loader2: <path d="M21 12a9 9 0 1 1-6.219-8.56" />,
             Users: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>,
-            ShoppingBag: <g><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></g>
+            ShoppingBag: <g><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></g>,
+            Edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></g>
         };
 
-        // 簡化呼叫圖示的方法
         const Lucide = (name, props) => {
             return <Icon path={icons[name]} {...props} />;
         };
@@ -84,7 +84,6 @@
             // --- 狀態管理 ---
             const [currentView, setCurrentView] = useState('form');
             
-            // 1. 紀錄資料
             const [logs, setLogs] = useState(() => {
                 try {
                     const saved = localStorage.getItem('harvestLogs');
@@ -92,7 +91,7 @@
                 } catch (e) { return []; }
             });
 
-            // 2. 選項設定
+            // 自己的選項 (老闆用的)
             const [options, setOptions] = useState(() => {
                 const defaultOptions = {
                     products: ['石斑', '紅蟳', '文蛤', '牡蠣'],
@@ -101,298 +100,220 @@
                     tideTypes: ['大潮', '小潮', '長潮', '若潮'],
                     buyers: ['餐廳', '魚販', '零售', '自用', '盤商']
                 };
-
                 try {
                     const saved = localStorage.getItem('harvestOptions');
-                    if (saved) {
-                        const parsed = JSON.parse(saved);
-                        return {
-                            products: parsed.products || defaultOptions.products,
-                            sizes: parsed.sizes || defaultOptions.sizes,
-                            quantities: parsed.quantities || defaultOptions.quantities,
-                            tideTypes: parsed.tideTypes || defaultOptions.tideTypes,
-                            buyers: parsed.buyers || defaultOptions.buyers 
-                        };
-                    }
-                    return defaultOptions;
-                } catch (e) {
-                    return defaultOptions;
-                }
+                    return saved ? JSON.parse(saved) : defaultOptions;
+                } catch (e) { return defaultOptions; }
             });
 
-            // Google Script URL
+            // 廠商的選單 (存放在 localStorage 的 'vendorCategories' 鍵中)
+            const [vendorCategories, setVendorCategories] = useState(() => {
+                const defaultVendorCategories = {
+                    "淡水水域": {
+                        "溪魚": ["馬口", "苦花", "石賓", "紅貓", "清貓(日本貓)"],
+                        "短尾": ["混血小䰾", "野生孔雀", "台灣石鮒", "齊式石鮒", "高體鰟鮍"],
+                        "長尾": ["蓋斑鬥魚(非原生)", "三星鬥魚", "劍尾魚", "鴛鴦魚"],
+                        "底棲": ["小瓢鉤", "櫻口鰍", "泥鰍", "中華花鰍"],
+                        "蝦": ["粗糙沼蝦", "貪食沼蝦", "台灣沼蝦", "細額沼蝦", "擬多齒米蝦", "多齒新米蝦(黑殼蝦)", "網球蝦", "衛氏米蝦"],
+                        "螺貝": ["圓田螺", "石田螺", "囊螺", "錐蜷", "網蜷", "蜆(鹹蜆)", "河蚌"],
+                        "其他": ["其他淡水魚"]
+                    },
+                    "汽化水域(可淡化)": {
+                        "小型魚": ["大口湯鯉", "金錢魚(變身苦)", "銀鯧", "海水茉莉", "擬鯉短塘鱧", "台灣吻蝦虎"],
+                        "蝦虎": ["棕塘鱧", "頭孔塘鱧", "無孔塘鱧", "鶯哥鯊蝦虎", "種子鯊蝦虎", "硬皮諸神島蝦虎", "克利米蝦虎", "拜庫雷蝦虎", "阿部氏鯔鰕虎", "裸身蝦虎", "粘皮鯔鰕虎", "寬帶裸身蝦虎", "黑鰭枝牙蝦虎", "褐吻蝦虎", "極樂吻蝦虎", "明潭吻蝦虎", "短吻紅斑蝦虎", "細斑吻蝦虎", "斑帶吻蝦虎", "恆春吻蝦虎", "蘭嶼吻蝦虎", "曙首厚脣鯊", "寬頰瓢鰭蝦虎", "兔頭瓢鰭蝦虎", "日本禿頭鯊", "台灣縱紋獅子魚"],
+                        "蝦": ["大和米蝦", "槍蝦"],
+                        "螺貝": ["笠螺", "蜜蜂角螺", "彩蛋螺", "鑽紋螺", "燒酒螺", "珠螺", "正得氏芝麻螺", "蚵岩螺", "結螺", "玉黍螺", "鳳螺", "寶螺", "芋螺", "鐘螺", "蜆(赤嘴)", "牡蠣"],
+                        "其他": ["其他汽水域生物"]
+                    },
+                    "出海口/半水陸": {
+                        "海苗": ["花身", "紅糟", "條紋豆娘"],
+                        "螃蟹": ["拉拉蟹", "顯齒澤蟹", "肥胖相手蟹", "帝王仿相手蟹", "紅螯螳臂蟹", "宮崎澤蟹", "灰白陸寄居蟹", "海寄居蟹"],
+                        "特殊": ["斑點竿鯊"],
+                        "其他": ["石蟳苗", "麵包蟹苗", "中國樹蟾", "淡水石狗公"]
+                    }
+                };
+                try {
+                    const saved = localStorage.getItem('vendorCategories');
+                    return saved ? JSON.parse(saved) : defaultVendorCategories;
+                } catch (e) { return defaultVendorCategories; }
+            });
+
+            // 編輯廠商選單的狀態
+            const [editingVendor, setEditingVendor] = useState({
+                cat: Object.keys(vendorCategories)[0],
+                sub: Object.keys(vendorCategories[Object.keys(vendorCategories)[0]])[0],
+                item: null, 
+                oldVal: '',
+                editingIndex: null 
+            });
+            const [newVendorItem, setNewVendorItem] = useState('');
+            const [editItemValue, setEditItemValue] = useState('');
+
+            // Script URL
             const [scriptUrl, setScriptUrl] = useState(() => {
                 return localStorage.getItem('harvestScriptUrl') || 'https://script.google.com/macros/s/AKfycbxznCVO1QALHtUUJGbK1vYGW6AFieqnxgGqlkPgN6y2ZckSrpXUIEQNuGoGpQ4zlwzJFw/exec';
             });
-
-            // 網址編輯狀態
             const [isEditingUrl, setIsEditingUrl] = useState(false);
 
-            // 表單資料
+            // 表單相關
             const [formData, setFormData] = useState({
                 date: new Date().toISOString().split('T')[0],
                 location: '',
-                tideRegion: '', 
-                specificSpot: '', 
-                tideType: '大潮',
-                relativeHeight: '',
-                buyer: '',
-                costTransport: '',
-                costToll: '',
-                costOther: '',
-                notes: ''
+                tideRegion: '', specificSpot: '', tideType: '大潮', relativeHeight: '',
+                buyer: '', costTransport: '', costToll: '', costOther: '', notes: ''
             });
-
-            // 收穫資料陣列 (固定 5 筆)
-            const [harvests, setHarvests] = useState(
-                Array(5).fill().map(() => ({ product: '', size: '', quantity: '' }))
-            );
-
-            // 照片與其他狀態
+            const [harvests, setHarvests] = useState(Array(5).fill().map(() => ({ product: '', size: '', quantity: '' })));
             const [photoFile, setPhotoFile] = useState(null);
             const [photoPreview, setPhotoPreview] = useState(null);
             const fileInputRef = useRef(null);
-
             const [locationStatus, setLocationStatus] = useState('idle'); 
             const [locationError, setLocationError] = useState('');
             const [uploadStatus, setUploadStatus] = useState('idle');
 
-            // --- 效果 (Effects) ---
-            useEffect(() => {
-                localStorage.setItem('harvestLogs', JSON.stringify(logs));
-            }, [logs]);
-
-            useEffect(() => {
-                localStorage.setItem('harvestOptions', JSON.stringify(options));
-            }, [options]);
-
-            useEffect(() => {
-                localStorage.setItem('harvestScriptUrl', scriptUrl);
-            }, [scriptUrl]);
-
+            // --- 效果 ---
+            useEffect(() => localStorage.setItem('harvestLogs', JSON.stringify(logs)), [logs]);
+            useEffect(() => localStorage.setItem('harvestOptions', JSON.stringify(options)), [options]);
+            // 重要：儲存廠商選單到 LocalStorage
+            useEffect(() => localStorage.setItem('vendorCategories', JSON.stringify(vendorCategories)), [vendorCategories]);
+            useEffect(() => localStorage.setItem('harvestScriptUrl', scriptUrl), [scriptUrl]);
             useEffect(() => {
                 const buyers = options.buyers || [];
-                if (!formData.buyer && buyers.length > 0) {
-                    setFormData(prev => ({ ...prev, buyer: buyers[0] }));
-                }
+                if (!formData.buyer && buyers.length > 0) setFormData(prev => ({ ...prev, buyer: buyers[0] }));
             }, [options]);
 
             // --- 功能函數 ---
-            const handleInputChange = (e) => {
-                const { name, value } = e.target;
-                setFormData(prev => ({ ...prev, [name]: value }));
-            };
-
+            const handleInputChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
             const handleHarvestChange = (index, field, value) => {
-                const newHarvests = [...harvests];
-                newHarvests[index] = { ...newHarvests[index], [field]: value };
-                setHarvests(newHarvests);
+                const newHarvests = [...harvests]; newHarvests[index] = { ...newHarvests[index], [field]: value }; setHarvests(newHarvests);
             };
-
             const getLocation = () => {
-                setLocationStatus('loading');
-                setLocationError('');
-
-                if (!navigator.geolocation) {
-                    setLocationStatus('error');
-                    setLocationError('裝置不支援');
-                    return;
-                }
-
+                setLocationStatus('loading'); setLocationError('');
+                if (!navigator.geolocation) { setLocationStatus('error'); setLocationError('裝置不支援'); return; }
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const { latitude, longitude } = position.coords;
-                        const locString = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-                        setFormData(prev => ({ ...prev, location: locString }));
-                        setLocationStatus('success');
+                    (pos) => {
+                        const loc = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+                        setFormData(prev => ({ ...prev, location: loc })); setLocationStatus('success');
                     },
-                    (error) => {
-                        console.error("Geo Error:", error);
-                        setLocationStatus('error');
-                        let msg = '定位失敗';
-                        if(error.code === 1) msg = '權限被拒';
-                        else if(error.code === 2) msg = '無法取得位置';
-                        else if(error.code === 3) msg = '定位逾時';
-                        setLocationError(msg);
-                    }
+                    (err) => { console.error(err); setLocationStatus('error'); setLocationError('定位失敗'); }
                 );
             };
-
-            const openGoogleMaps = () => {
-                window.open('https://www.google.com/maps', '_blank');
-            };
-
+            const openGoogleMaps = () => window.open('https://www.google.com/maps', '_blank');
             const handlePhotoSelect = (e) => {
                 const file = e.target.files[0];
-                if (file) {
-                    setPhotoFile(file);
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        setPhotoPreview(reader.result);
-                    };
-                    reader.readAsDataURL(file);
-                }
+                if (file) { setPhotoFile(file); const r = new FileReader(); r.onloadend = () => setPhotoPreview(r.result); r.readAsDataURL(file); }
             };
-
-            const fileToBase64 = (file) => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => {
-                        const base64String = reader.result.split(',')[1];
-                        resolve({
-                            base64: base64String,
-                            mimeType: file.type,
-                            fileName: file.name
-                        });
-                    };
-                    reader.onerror = error => reject(error);
-                });
-            };
-
+            const fileToBase64 = (file) => new Promise((resolve, reject) => {
+                const r = new FileReader(); r.readAsDataURL(file);
+                r.onload = () => resolve({ base64: r.result.split(',')[1], mimeType: file.type, fileName: file.name });
+                r.onerror = reject;
+            });
             const handleSubmit = async (e) => {
-                e.preventDefault();
-                setUploadStatus('uploading');
-
+                e.preventDefault(); setUploadStatus('uploading');
                 const validHarvests = harvests.filter(h => h.product && h.product.trim() !== '');
-                
                 const productStr = validHarvests.map(h => h.product).join('\n');
                 const sizeStr = validHarvests.map(h => h.size).join('\n');
                 const quantityStr = validHarvests.map(h => h.quantity).join('\n');
-                
                 const mainProduct = validHarvests.length > 0 ? validHarvests[0].product : '未分類';
                 const summaryText = validHarvests.length > 1 ? `${mainProduct}等${validHarvests.length}樣` : mainProduct;
-
                 const timestamp = new Date().toLocaleString();
-                let cloudSynced = false;
-
-                const newLog = {
-                    id: Date.now(),
-                    timestamp,
-                    ...formData,
-                    product: productStr,
-                    size: sizeStr,
-                    quantity: quantityStr,
-                    displaySummary: summaryText,
-                    rawHarvests: validHarvests,
-                    hasPhoto: !!photoFile,
-                    cloudSynced: false
-                };
+                const newLog = { id: Date.now(), timestamp, ...formData, product: productStr, size: sizeStr, quantity: quantityStr, displaySummary: summaryText, rawHarvests: validHarvests, hasPhoto: !!photoFile, cloudSynced: false };
 
                 if (scriptUrl) {
                     try {
-                        let imageData = null;
-                        if (photoFile) {
-                            imageData = await fileToBase64(photoFile);
-                        }
-
+                        let imageData = null; if (photoFile) imageData = await fileToBase64(photoFile);
                         const payload = {
-                            ...newLog,
-                            product: productStr || '(無)',
-                            size: sizeStr || '-',
-                            quantity: quantityStr || '-',
-                            notes: `[對象:${formData.buyer}] ${formData.notes}`,
-                            imageBase64: imageData ? imageData.base64 : '',
-                            imageMimeType: imageData ? imageData.mimeType : '',
+                            ...newLog, product: productStr || '(無)', size: sizeStr || '-', quantity: quantityStr || '-',
+                            notes: `[對象:${formData.buyer}] ${formData.notes}`, imageBase64: imageData?.base64 || '', imageMimeType: imageData?.mimeType || ''
                         };
-
-                        await fetch(scriptUrl, {
-                            method: 'POST',
-                            mode: 'no-cors', 
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
-                        cloudSynced = true;
-                        newLog.cloudSynced = true;
-                        alert('資料已發送至 Google Sheets！');
-
-                    } catch (error) {
-                        console.error("Upload failed:", error);
-                        alert('上傳 Google 失敗，僅儲存於本地。');
-                    }
-                } else {
-                    alert('紀錄已儲存！(僅存於手機)');
-                }
-
-                setLogs([newLog, ...logs]);
-                setUploadStatus('idle');
-
-                setFormData(prev => ({
-                    ...prev,
-                    costTransport: '',
-                    costToll: '',
-                    costOther: '',
-                    notes: ''
-                }));
+                        await fetch(scriptUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        newLog.cloudSynced = true; alert('已同步至雲端！');
+                    } catch (error) { console.error(error); alert('上傳失敗，僅存本地'); }
+                } else { alert('已存本地'); }
+                setLogs([newLog, ...logs]); setUploadStatus('idle');
+                setFormData(prev => ({ ...prev, costTransport: '', costToll: '', costOther: '', notes: '' }));
                 setHarvests(Array(5).fill().map(() => ({ product: '', size: '', quantity: '' })));
-                setPhotoFile(null);
-                setPhotoPreview(null);
-                setCurrentView('history');
+                setPhotoFile(null); setPhotoPreview(null); setCurrentView('history');
             };
-
-            const deleteLog = (id) => {
-                if (confirm('確定要刪除這筆紀錄嗎？')) {
-                    setLogs(logs.filter(log => log.id !== id));
-                }
-            };
-
-            const addOption = (category, value) => {
-                if (!value.trim()) return;
-                setOptions(prev => ({
-                    ...prev,
-                    [category]: [...(prev[category] || []), value]
-                }));
-            };
-
-            const removeOption = (category, index) => {
-                setOptions(prev => ({
-                    ...prev,
-                    [category]: (prev[category] || []).filter((_, i) => i !== index)
-                }));
-            };
-
+            const deleteLog = (id) => { if (confirm('確定刪除？')) setLogs(logs.filter(l => l.id !== id)); };
+            const addOption = (category, value) => { if (!value.trim()) return; setOptions(prev => ({ ...prev, [category]: [...(prev[category] || []), value] })); };
+            const removeOption = (category, index) => { setOptions(prev => ({ ...prev, [category]: (prev[category] || []).filter((_, i) => i !== index) })); };
             const openTideUrl = () => {
-                const url = "https://www.cwa.gov.tw/V8/C/M/tide.html";
-                const newWindow = window.open(url, '_blank');
-                if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-                    prompt("瀏覽器封鎖了彈出視窗，請複製以下網址自行開啟：", url);
+                const w = window.open("https://www.cwa.gov.tw/V8/C/M/tide.html", '_blank');
+                if (!w || w.closed) prompt("請複製網址:", "https://www.cwa.gov.tw/V8/C/M/tide.html");
+            };
+
+            // --- 廠商選單管理功能 (強化修正版) ---
+            const addVendorItem = () => {
+                if (!newVendorItem.trim()) return;
+                const { cat, sub } = editingVendor;
+                setVendorCategories(prev => {
+                    const newCats = JSON.parse(JSON.stringify(prev)); // Deep copy
+                    if (!newCats[cat]) newCats[cat] = {};
+                    if (!newCats[cat][sub]) newCats[cat][sub] = [];
+                    
+                    if (!newCats[cat][sub].includes(newVendorItem)) {
+                        newCats[cat][sub].push(newVendorItem);
+                    }
+                    return newCats;
+                });
+                setNewVendorItem('');
+            };
+
+            // 關鍵修正：獨立刪除函數，使用 filter 確保陣列更新
+            const removeVendorItem = (indexToDelete) => {
+                const { cat, sub } = editingVendor;
+                const item = vendorCategories[cat][sub][indexToDelete];
+                if(window.confirm(`確定刪除「${item}」嗎？`)) {
+                    setVendorCategories(prev => {
+                        const newCats = JSON.parse(JSON.stringify(prev));
+                        newCats[cat][sub] = newCats[cat][sub].filter((_, idx) => idx !== indexToDelete);
+                        return newCats;
+                    });
                 }
+            };
+
+            // 啟動修改模式
+            const startEditVendorItem = (item, index) => {
+                setEditingVendor(prev => ({ ...prev, editingIndex: index }));
+                setEditItemValue(item);
+            };
+
+            // 儲存修改
+            const saveEditVendorItem = () => {
+                if (!editItemValue.trim()) return;
+                const { cat, sub, editingIndex } = editingVendor;
+                setVendorCategories(prev => {
+                    const newCats = JSON.parse(JSON.stringify(prev));
+                    if (newCats[cat] && newCats[cat][sub]) {
+                        newCats[cat][sub][editingIndex] = editItemValue;
+                    }
+                    return newCats;
+                });
+                setEditingVendor(prev => ({ ...prev, editingIndex: null }));
+                setEditItemValue('');
+            };
+
+            // 取消修改
+            const cancelEditVendorItem = () => {
+                setEditingVendor(prev => ({ ...prev, editingIndex: null }));
+                setEditItemValue('');
             };
 
             // --- 子組件 ---
             const SettingsSection = ({ title, category, iconName }) => {
-                const [newValue, setNewValue] = useState('');
+                const [val, setVal] = useState('');
                 const items = options[category] || [];
-
                 return (
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-4">
-                        <div className="flex items-center gap-2 mb-3 text-slate-700 font-semibold">
-                            {Lucide(iconName, {size: 18})}
-                            <span>{title}設定</span>
-                        </div>
+                        <div className="flex items-center gap-2 mb-3 text-slate-700 font-semibold">{Lucide(iconName, {size: 18})} <span>{title}設定</span></div>
                         <div className="flex gap-2 mb-3">
-                            <input
-                                type="text"
-                                value={newValue}
-                                onChange={(e) => setNewValue(e.target.value)}
-                                placeholder={`新增${title}...`}
-                                className="flex-1 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                            <button 
-                                onClick={() => { addOption(category, newValue); setNewValue(''); }}
-                                className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"
-                            >
-                                {Lucide('Plus', {size: 20})}
-                            </button>
+                            <input type="text" value={val} onChange={(e) => setVal(e.target.value)} placeholder={`新增${title}...`} className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                            <button onClick={() => { addOption(category, val); setVal(''); }} className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700">{Lucide('Plus', {size: 18})}</button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {items.map((item, index) => (
-                                <span key={index} className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                                    {item}
-                                    <button onClick={() => removeOption(category, index)} className="text-slate-400 hover:text-red-500 font-bold">
-                                        ×
-                                    </button>
+                            {items.map((item, i) => (
+                                <span key={i} className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs flex items-center gap-1">
+                                    {item} <button onClick={() => removeOption(category, i)} className="text-slate-400 hover:text-red-500">×</button>
                                 </span>
                             ))}
                         </div>
@@ -403,551 +324,187 @@
             // --- Render ---
             return (
                 <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-800">
-                    
-                    {/* Header */}
                     <header className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 shadow-lg sticky top-0 z-50">
                         <div className="flex justify-between items-center max-w-3xl mx-auto">
-                            <h1 className="text-xl font-bold flex items-center gap-2">
-                                {Lucide('Anchor', {className: "text-cyan-200"})}
-                                漁獲採集日誌
-                            </h1>
-                            <div className="text-xs bg-white/20 px-2 py-1 rounded-full">
-                                {new Date().toLocaleDateString()}
-                            </div>
+                            <h1 className="text-xl font-bold flex items-center gap-2">{Lucide('Anchor', {className: "text-cyan-200"})} 漁獲採集日誌</h1>
+                            <div className="text-xs bg-white/20 px-2 py-1 rounded-full">{new Date().toLocaleDateString()}</div>
                         </div>
                     </header>
 
                     <main className="max-w-3xl mx-auto p-4">
-                        
-                        {/* VIEW: 表單輸入 (Form) */}
                         {currentView === 'form' && (
                             <form onSubmit={handleSubmit} className="space-y-6">
-                                
-                                {/* 1. 日期與地點 */}
+                                {/* 表單內容 (省略重複部分) */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                                     <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
                                         {Lucide('MapPin', {size: 16})} 基礎資訊
                                     </div>
                                     <div className="p-4 grid gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">日期</label>
-                                            <div className="relative">
-                                                <input 
-                                                    type="date" 
-                                                    name="date"
-                                                    required
-                                                    value={formData.date}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 pl-10 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                />
-                                                <div className="absolute left-3 top-3.5 text-slate-400">{Lucide('Calendar', {size: 18})}</div>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">作業地點</label>
-                                            <div className="flex gap-2">
-                                                <input 
-                                                    type="text" 
-                                                    name="location"
-                                                    placeholder="手動輸入或點擊定位"
-                                                    value={formData.location}
-                                                    onChange={handleInputChange}
-                                                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
-                                                />
-                                                <button 
-                                                    type="button"
-                                                    onClick={getLocation}
-                                                    disabled={locationStatus === 'loading'}
-                                                    className={`px-3 rounded-xl flex items-center gap-1 transition-colors justify-center ${locationStatus === 'loading' ? 'bg-slate-200 text-slate-500' : 'bg-cyan-600 text-white active:bg-cyan-700'}`}
-                                                >
-                                                    {locationStatus === 'loading' ? <span className="animate-spin">{Lucide('Loader2', {size:18})}</span> : Lucide('Navigation', {size: 18})}
-                                                    <span className="text-sm">定位</span>
-                                                </button>
-                                                <button 
-                                                    type="button"
-                                                    onClick={openGoogleMaps}
-                                                    className="px-3 rounded-xl bg-slate-200 text-slate-600 active:bg-slate-300 flex items-center gap-1"
-                                                    title="開啟 Google Maps 查看位置"
-                                                >
-                                                    {Lucide('Map', {size: 18})}
-                                                </button>
-                                            </div>
-                                            
-                                            {locationStatus === 'success' && (
-                                                <p className="text-xs text-green-600 mt-2 flex items-center gap-1 animate-pulse">
-                                                    <span className="bg-green-100 p-0.5 rounded-full">✓</span> 定位成功
-                                                </p>
-                                            )}
-                                            {locationStatus === 'error' && (
-                                                <div className="mt-2 text-xs">
-                                                    <p className="text-red-500 flex items-center gap-1">
-                                                        {Lucide('AlertCircle', {size: 14})} {locationError}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">日期</label><input type="date" name="date" required value={formData.date} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 pl-2 focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">作業地點</label><div className="flex gap-2"><input type="text" name="location" placeholder="手動輸入或點擊定位" value={formData.location} onChange={handleInputChange} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none" /><button type="button" onClick={getLocation} disabled={locationStatus === 'loading'} className="px-3 rounded-xl bg-cyan-600 text-white flex items-center justify-center min-w-[80px]">{locationStatus === 'loading' ? <span className="animate-spin">⌛</span> : '定位'}</button></div>{locationStatus === 'success' && <p className="text-xs text-green-600 mt-1">✓ 定位成功</p>}</div>
                                     </div>
                                 </section>
-
                                 {/* 2. 環境水文 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium justify-between">
-                                        <div className="flex items-center gap-2">
-                                            {Lucide('Waves', {size: 16})} 環境水文
-                                        </div>
-                                        <button 
-                                            type="button"
-                                            onClick={openTideUrl}
-                                            className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-blue-200 transition-colors active:bg-blue-300"
-                                        >
-                                            {Lucide('ExternalLink', {size: 14})} 查詢潮汐
-                                        </button>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-slate-600 font-medium">
+                                        <div className="flex gap-2">{Lucide('Waves', {size: 16})} 環境水文</div>
+                                        <button type="button" onClick={openTideUrl} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex gap-1">{Lucide('ExternalLink', {size: 12})} 潮汐表</button>
                                     </div>
                                     <div className="p-4 grid grid-cols-2 gap-4">
-                                        <div className="col-span-2">
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">潮差地區 (大範圍)</label>
-                                            <input 
-                                                type="text" 
-                                                name="tideRegion"
-                                                placeholder="例如：鹿港外海、王功"
-                                                value={formData.tideRegion}
-                                                onChange={handleInputChange}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">大小潮</label>
-                                            <div className="relative">
-                                                <select 
-                                                    name="tideType"
-                                                    value={formData.tideType}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 appearance-none focus:ring-2 focus:ring-blue-500 outline-none"
-                                                >
-                                                    {options.tideTypes?.map(o => <option key={o} value={o}>{o}</option>)}
-                                                </select>
-                                                <div className="absolute right-3 top-4 text-slate-400 pointer-events-none">{Lucide('ChevronDown', {size: 16})}</div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">相對高度</label>
-                                            <input 
-                                                type="text" 
-                                                name="relativeHeight"
-                                                placeholder="例如：+1.5m"
-                                                value={formData.relativeHeight}
-                                                onChange={handleInputChange}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-xs font-bold text-slate-500 mb-1">潮差地區 (細部地點/地標)</label>
-                                            <input 
-                                                type="text" 
-                                                name="specificSpot"
-                                                placeholder="例如：3號蚵棚、北堤旁"
-                                                value={formData.specificSpot}
-                                                onChange={handleInputChange}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
+                                        <div className="col-span-2"><input type="text" name="tideRegion" placeholder="潮差地區 (大範圍)" value={formData.tideRegion} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
+                                        <div><select name="tideType" value={formData.tideType} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none">{options.tideTypes?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                                        <div><input type="text" name="relativeHeight" placeholder="相對高度" value={formData.relativeHeight} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
+                                        <div className="col-span-2"><input type="text" name="specificSpot" placeholder="細部地點/地標" value={formData.specificSpot} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
                                     </div>
                                 </section>
-
                                 {/* 3. 收穫成果 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-green-500">
                                     <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-slate-600 font-medium">
-                                        <div className="flex items-center gap-2">{Lucide('Fish', {size: 16})} 收穫成果 (最多5項)</div>
-                                        <span className="text-xs text-slate-400">選項於設定新增</span>
+                                        <div className="flex gap-2">{Lucide('Fish', {size: 16})} 收穫成果</div><span className="text-xs text-slate-400">選項於設定新增</span>
                                     </div>
-                                    <div className="p-4 space-y-6">
-                                        
-                                        {harvests.map((item, index) => (
-                                            <div key={index} className="relative bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                                <div className="absolute -top-2 -left-2 bg-green-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-sm">
-                                                    {index + 1}
-                                                </div>
-                                                
-                                                <div className="grid gap-3">
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-400 mb-1">品名</label>
-                                                        <div className="relative">
-                                                            <select 
-                                                                value={item.product}
-                                                                onChange={(e) => handleHarvestChange(index, 'product', e.target.value)}
-                                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 appearance-none focus:ring-2 focus:ring-green-500 outline-none text-slate-700"
-                                                            >
-                                                                <option value="">(無)</option>
-                                                                {options.products?.map(o => <option key={o} value={o}>{o}</option>)}
-                                                            </select>
-                                                            <div className="absolute right-3 top-3 text-slate-300 pointer-events-none">{Lucide('ChevronDown', {size: 14})}</div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div>
-                                                            <label className="block text-xs font-bold text-slate-400 mb-1">規格</label>
-                                                            <div className="relative">
-                                                                <select 
-                                                                    value={item.size}
-                                                                    onChange={(e) => handleHarvestChange(index, 'size', e.target.value)}
-                                                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 appearance-none focus:ring-2 focus:ring-green-500 outline-none text-sm"
-                                                                >
-                                                                    <option value="">選擇規格</option>
-                                                                    {options.sizes?.map(o => <option key={o} value={o}>{o}</option>)}
-                                                                </select>
-                                                                <div className="absolute right-3 top-3 text-slate-300 pointer-events-none">{Lucide('ChevronDown', {size: 14})}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs font-bold text-slate-400 mb-1">數量</label>
-                                                            <div className="relative">
-                                                                <select 
-                                                                    value={item.quantity}
-                                                                    onChange={(e) => handleHarvestChange(index, 'quantity', e.target.value)}
-                                                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 appearance-none focus:ring-2 focus:ring-green-500 outline-none text-sm"
-                                                                >
-                                                                    <option value="">選擇數量</option>
-                                                                    {options.quantities?.map(o => <option key={o} value={o}>{o}</option>)}
-                                                                </select>
-                                                                <div className="absolute right-3 top-3 text-slate-300 pointer-events-none">{Lucide('ChevronDown', {size: 14})}</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                    <div className="p-4 space-y-4">
+                                        {harvests.map((item, idx) => (
+                                            <div key={idx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 grid gap-2">
+                                                <div className="font-bold text-xs text-slate-400">#{idx+1}</div>
+                                                <select value={item.product} onChange={e=>handleHarvestChange(idx,'product',e.target.value)} className="w-full border rounded px-2 py-2 bg-white"><option value="">(無)</option>{options.products?.map(o=><option key={o} value={o}>{o}</option>)}</select>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <select value={item.size} onChange={e=>handleHarvestChange(idx,'size',e.target.value)} className="border rounded px-2 py-2 bg-white"><option value="">規格</option>{options.sizes?.map(o=><option key={o} value={o}>{o}</option>)}</select>
+                                                    <select value={item.quantity} onChange={e=>handleHarvestChange(idx,'quantity',e.target.value)} className="border rounded px-2 py-2 bg-white"><option value="">數量</option>{options.quantities?.map(o=><option key={o} value={o}>{o}</option>)}</select>
                                                 </div>
                                             </div>
                                         ))}
-
-                                        {/* 照片上傳區 */}
-                                        <div className="mt-2 border-t border-slate-100 pt-4">
-                                            <label className="block text-xs font-bold text-slate-500 mb-2">現場照片 (將上傳至 Drive)</label>
-                                            
-                                            <input 
-                                                type="file" 
-                                                accept="image/*" 
-                                                capture="environment" 
-                                                ref={fileInputRef}
-                                                onChange={handlePhotoSelect}
-                                                className="hidden" 
-                                            />
-
-                                            {!photoPreview ? (
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="w-full border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-500 transition-colors gap-2"
-                                                >
-                                                    {Lucide('Camera', {size: 32})}
-                                                    <span className="text-sm font-medium">拍攝 / 選擇照片</span>
-                                                </button>
-                                            ) : (
-                                                <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                                                    <img src={photoPreview} alt="Preview" className="w-full h-48 object-cover" />
-                                                    <button 
-                                                        type="button"
-                                                        onClick={() => { setPhotoFile(null); setPhotoPreview(null); }}
-                                                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"
-                                                    >
-                                                        {Lucide('Trash2', {size: 14})}
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {scriptUrl ? (
-                                                <p className="text-[10px] text-green-600 mt-2 text-center flex items-center justify-center gap-1">
-                                                    {Lucide('CheckCircle', {size: 10})} 將於儲存時自動上傳至 Google Drive
-                                                </p>
-                                            ) : (
-                                                <p className="text-[10px] text-red-400 mt-2 text-center flex items-center justify-center gap-1">
-                                                    {Lucide('AlertCircle', {size: 10})} 未設定雲端網址，照片僅供預覽不會上傳
-                                                </p>
-                                            )}
+                                        <div className="border-t pt-4">
+                                            <input type="file" accept="image/*" ref={fileInputRef} onChange={handlePhotoSelect} className="hidden" />
+                                            {!photoPreview ? <button type="button" onClick={()=>fileInputRef.current?.click()} className="w-full border-2 border-dashed rounded-lg p-4 text-slate-400 flex flex-col items-center gap-1">{Lucide('Camera', {size:24})}<span className="text-xs">拍照上傳</span></button> : <div className="relative rounded-lg overflow-hidden border"><img src={photoPreview} className="w-full h-32 object-cover" /><button onClick={()=>{setPhotoFile(null);setPhotoPreview(null)}} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full">{Lucide('Trash2', {size:12})}</button></div>}
                                         </div>
-
                                     </div>
                                 </section>
-
-                                {/* 4. 出貨對象 & 成本 */}
+                                {/* 4. 銷售成本 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-orange-400">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
-                                        {Lucide('ShoppingBag', {size: 16})} 銷售與成本
-                                    </div>
-                                    <div className="p-4 space-y-4">
-                                        
-                                        {/* 出貨對象 */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
-                                                {Lucide('Users', {size: 12})} 出貨對象
-                                            </label>
-                                            <div className="relative">
-                                                <select 
-                                                    name="buyer"
-                                                    value={formData.buyer}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 appearance-none focus:ring-2 focus:ring-orange-400 outline-none font-medium text-slate-700"
-                                                >
-                                                    <option value="" disabled>請選擇對象</option>
-                                                    {options.buyers?.map(o => <option key={o} value={o}>{o}</option>)}
-                                                </select>
-                                                <div className="absolute right-3 top-4 text-slate-400 pointer-events-none">{Lucide('ChevronDown', {size: 16})}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="border-t border-slate-100 my-2"></div>
-
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">車資(油錢)</label>
-                                                <input 
-                                                    type="number" 
-                                                    name="costTransport"
-                                                    placeholder="0"
-                                                    value={formData.costTransport}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right focus:ring-2 focus:ring-red-400 outline-none"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">過路費</label>
-                                                <input 
-                                                    type="number" 
-                                                    name="costToll"
-                                                    placeholder="0"
-                                                    value={formData.costToll}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right focus:ring-2 focus:ring-red-400 outline-none"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">其他</label>
-                                                <input 
-                                                    type="number" 
-                                                    name="costOther"
-                                                    placeholder="0"
-                                                    value={formData.costOther}
-                                                    onChange={handleInputChange}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-right focus:ring-2 focus:ring-red-400 outline-none"
-                                                />
-                                            </div>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('ShoppingBag', {size:16})} 銷售與成本</div>
+                                    <div className="p-4 space-y-3">
+                                        <div><label className="text-xs font-bold text-slate-500">出貨對象</label><select name="buyer" value={formData.buyer} onChange={handleInputChange} className="w-full border rounded px-3 py-2 mt-1"><option value="" disabled>請選擇</option>{options.buyers?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div><label className="text-xs font-bold text-slate-500">車資</label><input type="number" name="costTransport" placeholder="0" value={formData.costTransport} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
+                                            <div><label className="text-xs font-bold text-slate-500">過路費</label><input type="number" name="costToll" placeholder="0" value={formData.costToll} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
+                                            <div><label className="text-xs font-bold text-slate-500">其他</label><input type="number" name="costOther" placeholder="0" value={formData.costOther} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
                                         </div>
                                     </div>
                                 </section>
-
                                 {/* 5. 備註 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
-                                        {Lucide('FileText', {size: 16})} 備註
-                                    </div>
-                                    <div className="p-4">
-                                        <textarea
-                                            name="notes"
-                                            placeholder="輸入其他備註事項..."
-                                            value={formData.notes}
-                                            onChange={handleInputChange}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
-                                        />
-                                    </div>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('FileText', {size:16})} 備註</div>
+                                    <div className="p-4"><textarea name="notes" placeholder="備註..." value={formData.notes} onChange={handleInputChange} className="w-full border rounded-lg p-3 h-20 outline-none resize-none"></textarea></div>
                                 </section>
-
-                                <button 
-                                    type="submit" 
-                                    disabled={uploadStatus === 'uploading'}
-                                    className={`w-full text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg ${uploadStatus === 'uploading' ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700 active:scale-95 shadow-blue-200'}`}
-                                >
-                                    {uploadStatus === 'uploading' ? (
-                                        <React.Fragment>
-                                            <span className="animate-spin">{Lucide('Loader2', {size: 24})}</span>
-                                            上傳資料中...
-                                        </React.Fragment>
-                                    ) : (
-                                        <React.Fragment>
-                                            {Lucide('Save', {size: 24})}
-                                            儲存紀錄 {scriptUrl && '& 同步雲端'}
-                                        </React.Fragment>
-                                    )}
-                                </button>
+                                <button type="submit" disabled={uploadStatus==='uploading'} className={`w-full py-4 rounded-2xl text-white font-bold text-lg flex justify-center items-center gap-2 ${uploadStatus==='uploading'?'bg-slate-400':'bg-blue-600'}`}>{uploadStatus==='uploading'?<><span className="animate-spin">⌛</span>上傳中...</>:<>{Lucide('Save', {size:20})} 儲存紀錄</>}</button>
                                 <div className="h-4"></div>
                             </form>
                         )}
 
-                        {/* VIEW: 設定 (Settings) */}
                         {currentView === 'settings' && (
-                            <div className="animate-fade-in">
+                            <div className="animate-fade-in pb-10">
                                 <h2 className="text-xl font-bold mb-4 text-slate-700">選單設定</h2>
                                 
+                                {/* 雲端網址 */}
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 border-l-4 border-l-blue-500">
-                                    <div className="flex items-center gap-2 mb-2 text-blue-800 font-bold">
-                                        {Lucide('Cloud', {size: 18})}
-                                        <span>雲端同步設定 (Google Sheets)</span>
-                                    </div>
-                                    <p className="text-xs text-slate-500 mb-3">
-                                        請輸入您的「Apps Script 網頁應用程式網址」以啟用自動上傳。
-                                    </p>
+                                    <div className="flex items-center gap-2 mb-2 text-blue-800 font-bold">{Lucide('Cloud', {size: 18})} <span>雲端同步設定</span></div>
                                     <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            placeholder="https://script.google.com/macros/s/..."
-                                            value={scriptUrl}
-                                            onChange={(e) => setScriptUrl(e.target.value)}
-                                            disabled={!isEditingUrl}
-                                            className={`flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none ${!isEditingUrl ? 'text-slate-500 bg-slate-100' : ''}`}
-                                        />
-                                        {isEditingUrl ? (
-                                            <button 
-                                                onClick={() => { setIsEditingUrl(false); alert('網址已儲存！'); }}
-                                                className="bg-green-600 text-white px-4 rounded-lg text-sm hover:bg-green-700 whitespace-nowrap"
-                                            >
-                                                確認
-                                            </button>
-                                        ) : (
-                                            <button 
-                                                onClick={() => setIsEditingUrl(true)}
-                                                className="bg-blue-600 text-white px-4 rounded-lg text-sm hover:bg-blue-700 whitespace-nowrap"
-                                            >
-                                                修改
-                                            </button>
-                                        )}
+                                        <input type="text" value={scriptUrl} onChange={(e) => setScriptUrl(e.target.value)} disabled={!isEditingUrl} className={`flex-1 border rounded px-2 py-1 text-sm ${!isEditingUrl?'bg-slate-100 text-slate-500':''}`} />
+                                        <button onClick={() => { if(isEditingUrl) alert('已儲存'); setIsEditingUrl(!isEditingUrl); }} className={`px-3 rounded text-sm text-white ${isEditingUrl?'bg-green-600':'bg-blue-600'}`}>{isEditingUrl?'確認':'修改'}</button>
                                     </div>
                                 </div>
 
-                                <SettingsSection title="產品 (品名)" category="products" iconName="Fish" />
-                                <SettingsSection title="規格 (大小)" category="sizes" iconName="Waves" />
-                                <SettingsSection title="數量 (單位)" category="quantities" iconName="Anchor" />
-                                <SettingsSection title="潮汐種類" category="tideTypes" iconName="Waves" />
+                                {/* 本地日誌選項 */}
+                                <h3 className="font-bold text-gray-500 mb-2 mt-6 border-b pb-1">您的日誌選項</h3>
+                                <SettingsSection title="產品" category="products" iconName="Fish" />
+                                <SettingsSection title="規格" category="sizes" iconName="Waves" />
+                                <SettingsSection title="數量" category="quantities" iconName="Anchor" />
+                                <SettingsSection title="潮汐" category="tideTypes" iconName="Waves" />
                                 <SettingsSection title="出貨對象" category="buyers" iconName="Users" />
-                            </div>
-                        )}
 
-                        {/* VIEW: 歷史紀錄 (History) */}
-                        {currentView === 'history' && (
-                            <div className="space-y-4 animate-fade-in">
-                                <h2 className="text-xl font-bold mb-4 text-slate-700 flex justify-between items-center">
-                                    <span>歷史紀錄 ({logs.length})</span>
-                                    <button onClick={() => {if(confirm('清除所有紀錄?')) setLogs([])}} className="text-xs text-red-400 font-normal">清除全部</button>
-                                </h2>
-                                
-                                {logs.length === 0 ? (
-                                    <div className="text-center py-10 text-slate-400">
-                                        <div className="mx-auto mb-2 opacity-50 flex justify-center">{Lucide('History', {size: 48})}</div>
-                                        <p>尚無紀錄</p>
+                                {/* 廠商選單管理 */}
+                                <h3 className="font-bold text-orange-500 mb-2 mt-8 border-b border-orange-200 pb-1 flex items-center gap-2">
+                                    {Lucide('Edit', {size:18})} 廠商訂購單選項管理
+                                </h3>
+                                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                                    <p className="text-xs text-orange-700 mb-3">此處修改會同步到 <b>vendor.html</b> (需在同網域下)。點擊品項可修改，點擊右側 × 刪除。</p>
+                                    
+                                    <div className="flex gap-2 mb-3">
+                                        <select 
+                                            value={editingVendor.cat} 
+                                            onChange={(e) => setEditingVendor({cat: e.target.value, sub: Object.keys(vendorCategories[e.target.value])[0], editingIndex: null})}
+                                            className="w-1/2 border rounded px-2 py-1 text-sm"
+                                        >
+                                            {Object.keys(vendorCategories).map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                        <select 
+                                            value={editingVendor.sub} 
+                                            onChange={(e) => setEditingVendor(prev => ({...prev, sub: e.target.value, editingIndex: null}))}
+                                            className="w-1/2 border rounded px-2 py-1 text-sm"
+                                        >
+                                            {Object.keys(vendorCategories[editingVendor.cat]).map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
                                     </div>
-                                ) : (
-                                    logs.map(log => {
-                                        const totalCost = Number(log.costTransport || 0) + Number(log.costToll || 0) + Number(log.costOther || 0);
-                                        return (
-                                            <div key={log.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 relative group">
-                                                <button 
-                                                    onClick={() => deleteLog(log.id)}
-                                                    className="absolute top-4 right-4 text-slate-300 hover:text-red-500"
-                                                >
-                                                    {Lucide('Trash2', {size: 18})}
-                                                </button>
 
-                                                <div className="flex items-baseline justify-between mb-2 pr-8">
-                                                    <h3 className="text-lg font-bold text-blue-800">{log.displaySummary || log.product}</h3>
-                                                    <span className="text-sm font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{log.date}</span>
+                                    <div className="flex gap-2 mb-3">
+                                        <input 
+                                            type="text" 
+                                            value={newVendorItem} 
+                                            onChange={(e) => setNewVendorItem(e.target.value)} 
+                                            placeholder={`新增品項到 [${editingVendor.sub}]...`} 
+                                            className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-orange-400"
+                                        />
+                                        <button onClick={addVendorItem} className="bg-orange-500 text-white px-3 rounded hover:bg-orange-600">{Lucide('Plus', {size:18})}</button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {vendorCategories[editingVendor.cat][editingVendor.sub].map((item, i) => (
+                                            editingVendor.editingIndex === i ? (
+                                                <div key={i} className="flex gap-1 items-center bg-white border border-orange-400 px-1 py-1 rounded shadow-sm">
+                                                    <input 
+                                                        type="text" 
+                                                        value={editItemValue} 
+                                                        onChange={(e) => setEditItemValue(e.target.value)} 
+                                                        className="w-24 text-sm outline-none"
+                                                        autoFocus
+                                                    />
+                                                    <button onClick={saveEditVendorItem} className="text-green-500 font-bold px-1 hover:bg-green-50 rounded">✓</button>
+                                                    <button onClick={cancelEditVendorItem} className="text-red-500 font-bold px-1 hover:bg-red-50 rounded">×</button>
                                                 </div>
-                                                
-                                                <div className="mb-3">
-                                                    {log.cloudSynced ? (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100">
-                                                            {Lucide('CheckCircle', {size: 10})} 已同步雲端
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
-                                                            {Lucide('XCircle', {size: 10})} 僅存本地
-                                                        </span>
-                                                    )}
+                                            ) : (
+                                                <div key={i} className="flex items-center gap-1 bg-white border border-orange-200 text-orange-800 px-2 py-1 rounded text-sm shadow-sm hover:bg-orange-50 group">
+                                                    <span className="cursor-pointer hover:underline" onClick={() => startEditVendorItem(item, i)}>{item}</span>
+                                                    
+                                                    {/* 獨立刪除按鈕：完全隔離的點擊事件 */}
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { 
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            removeVendorItem(i); 
+                                                        }}
+                                                        className="ml-2 w-5 h-5 flex items-center justify-center bg-red-100 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-colors cursor-pointer z-50"
+                                                    >
+                                                        ×
+                                                    </button>
                                                 </div>
-
-                                                {/* 顯示詳細收穫清單 */}
-                                                <div className="bg-slate-50 p-2 rounded-lg mb-3 text-sm text-slate-600 space-y-1">
-                                                    {log.rawHarvests && log.rawHarvests.length > 0 ? (
-                                                        log.rawHarvests.map((h, idx) => (
-                                                            <div key={idx} className="flex justify-between border-b border-slate-100 last:border-0 pb-1 last:pb-0">
-                                                                <span className="font-medium">{h.product}</span>
-                                                                <span className="text-slate-500">{h.size} / {h.quantity}</span>
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="flex justify-between">
-                                                            <span className="font-medium">{log.product}</span>
-                                                            <span className="text-slate-500">{log.size} / {log.quantity}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-y-2 text-sm text-slate-600 mb-3">
-                                                    <div><span className="text-slate-400 text-xs">對象:</span> {log.buyer || '(未填)'}</div>
-                                                    <div><span className="text-slate-400 text-xs">地點:</span> {log.tideRegion}</div>
-                                                    <div><span className="text-slate-400 text-xs">細部:</span> {log.specificSpot}</div>
-                                                    <div><span className="text-slate-400 text-xs">潮汐:</span> {log.tideType}</div>
-                                                </div>
-                                                
-                                                {log.hasPhoto && (
-                                                    <div className="mb-2 inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">
-                                                        {Lucide('ImageIcon', {size: 12})} 有照片
-                                                    </div>
-                                                )}
-
-                                                {log.notes && (
-                                                    <div className="border-t border-slate-100 pt-2 mt-2 text-sm text-slate-500">
-                                                        <span className="text-xs text-slate-400 block mb-1">備註:</span>
-                                                        {log.notes}
-                                                    </div>
-                                                )}
-
-                                                {totalCost > 0 && (
-                                                    <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between items-center text-sm">
-                                                        <span className="text-slate-400">總成本</span>
-                                                        <span className="font-bold text-red-500 flex items-center">
-                                                            {Lucide('DollarSign', {size: 14})} {totalCost}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })
-                                )}
+                                            )
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
-
+                        
+                        {/* 底部導航 */}
+                        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-around">
+                            <button onClick={()=>setCurrentView('form')} className={`p-3 rounded-xl flex flex-col items-center w-20 text-xs ${currentView==='form'?'text-blue-600':'text-gray-400'}`}>{Lucide('Plus', {size:24})}<span>記一筆</span></button>
+                            <button onClick={()=>setCurrentView('history')} className={`p-3 rounded-xl flex flex-col items-center w-20 text-xs ${currentView==='history'?'text-blue-600':'text-gray-400'}`}>{Lucide('History', {size:24})}<span>紀錄</span></button>
+                            <button onClick={()=>setCurrentView('settings')} className={`p-3 rounded-xl flex flex-col items-center w-20 text-xs ${currentView==='settings'?'text-blue-600':'text-gray-400'}`}>{Lucide('Settings', {size:24})}<span>設定</span></button>
+                        </nav>
                     </main>
-
-                    {/* 底部導航列 */}
-                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe-area shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
-                        <div className="max-w-3xl mx-auto flex justify-around p-2">
-                            <button 
-                                onClick={() => setCurrentView('form')}
-                                className={`p-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors w-20 ${currentView === 'form' ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                {Lucide('Plus', {size: 24})}
-                                <span>記一筆</span>
-                            </button>
-                            
-                            <button 
-                                onClick={() => setCurrentView('history')}
-                                className={`p-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors w-20 ${currentView === 'history' ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                {Lucide('History', {size: 24})}
-                                <span>紀錄</span>
-                            </button>
-
-                            <button 
-                                onClick={() => setCurrentView('settings')}
-                                className={`p-3 rounded-xl flex flex-col items-center gap-1 text-xs font-medium transition-colors w-20 ${currentView === 'settings' ? 'text-blue-600 bg-blue-50' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                {Lucide('Settings', {size: 24})}
-                                <span>設定</span>
-                            </button>
-                        </div>
-                    </nav>
-
-                    <div className="pb-6"></div> 
                 </div>
             );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
