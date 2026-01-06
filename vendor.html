@@ -16,6 +16,7 @@
         const { useState, useRef, useEffect } = React;
         const Icon = ({ path, size = 20, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{path}</svg>;
         
+        // 修正後的圖示集合
         const icons = {
             User: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></g>,
             Fish: <g><path d="M6.5 12c.94-2.08 2.38-3.97 4.14-5.38A12.03 12.03 0 0 1 12 6c5.52 0 10 4.48 10 10s-4.48 10-10 10-10-4.48-10-10c0-.17.01-.33.03-.5.5 0 1-.5 1.5-1"/><path d="M17.8 16.37a4 4 0 0 0-2.17-3.17"/><path d="M12.92 14.3a2 2 0 0 0-1.22-1.22"/></g>,
@@ -30,7 +31,7 @@
 
         function VendorApp() {
             // 固定參數：您的 Google Apps Script 網址
-            const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxznCVO1QALHtUUJGbK1vYGW6AFieqnxgGqlkPgN6y2ZckSrpXUIEQNuGoGpQ4zlwzJFw/exec';
+            const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyK4shXZpsrOLKZLC6Mmvxfcv0uO6qC8QdbbrA1WZ5mXyef6ZsfnfclvjWZl2R_hZrYdw/exec';
             
             // --- 依照您的最新清單設定分類 ---
             const defaultCategories = {
@@ -45,10 +46,10 @@
                 "汽化水域(可淡化)": {
                     "小型魚": ["大口湯鯉", "金錢魚(變身苦)", "銀鯧", "海水茉莉", "擬鯉短塘鱧", "台灣吻蝦虎"],
                     "蝦虎": ["棕塘鱧", "頭孔塘鱧", "無孔塘鱧", "鶯哥鯊蝦虎", "種子鯊蝦虎", "硬皮諸神島蝦虎", "克利米蝦虎", "拜庫雷蝦虎", "阿部氏鯔鰕虎", "裸身蝦虎", "粘皮鯔鰕虎", "寬帶裸身蝦虎", "黑鰭枝牙蝦虎", "褐吻蝦虎", "極樂吻蝦虎", "明潭吻蝦虎", "短吻紅斑蝦虎", "細斑吻蝦虎", "斑帶吻蝦虎", "恆春吻蝦虎", "蘭嶼吻蝦虎", "曙首厚脣鯊", "寬頰瓢鰭蝦虎", "兔頭瓢鰭蝦虎", "日本禿頭鯊", "台灣縱紋獅子魚"],
+                    "其他": ["廣東彈塗魚", "溪鯉(季節限定)"],
                     "洄游蝦": ["貪食藻蝦", "刺足藻蝦", "絨掌藻蝦", "忍者蝦/貴賓蝦", "蜜蜂網球蝦", "石紋網球蝦", "琥珀網球蝦", "潔白長臂蝦"],
                     "河口蝦": ["霸王槍蝦", "短鼻槍蝦"],
-                    "海龍": ["無棘海龍"],
-                    "其他": ["廣東彈塗魚", "溪鯉(季節限定)"]
+                    "海龍": ["無棘海龍"]
                 },
                 "出海口/半水陸": {
                     "海苗": ["花身", "紅糟", "條紋豆娘"],
@@ -72,7 +73,6 @@
             useEffect(() => {
                 const savedName = localStorage.getItem('lastVendorName');
                 if (savedName) setVendorName(savedName);
-                // 嘗試讀取老闆設定的同步分類 (同網域下有效)
                 try {
                     const synced = localStorage.getItem('vendorCategories');
                     if (synced) {
@@ -111,8 +111,13 @@
                             location: '-', size: '-', tideRegion: '-', specificSpot: '-', tideType: '-', relativeHeight: '-', costTransport: '', costToll: '', costOther: '', imageBase64: '', imageMimeType: ''
                         })
                     });
-                    setUploadStatus('success'); alert('下單成功！');
-                    setItems([{ category: '', subCategory: '', product: '', quantity: '', unit: '隻' },{ category: '', subCategory: '', product: '', quantity: '', unit: '隻' },{ category: '', subCategory: '', product: '', quantity: '', unit: '隻' }]);
+                    setUploadStatus('success'); alert('下單成功！資料已傳送至雲端。');
+                    // 重置表單，保留 3 行
+                    setItems([
+                        { category: '', subCategory: '', product: '', quantity: '', unit: '隻' },
+                        { category: '', subCategory: '', product: '', quantity: '', unit: '隻' },
+                        { category: '', subCategory: '', product: '', quantity: '', unit: '隻' }
+                    ]);
                     setTimeout(() => setUploadStatus('idle'), 2000);
                 } catch (err) { console.error(err); alert('失敗'); setUploadStatus('idle'); }
             };
