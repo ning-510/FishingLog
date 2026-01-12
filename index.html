@@ -45,7 +45,7 @@
             </svg>
         );
 
-        // 使用 <g> (Group) 標籤來包裹多個 SVG 路徑
+        // 使用 <g> (Group) 標籤來包裹多個 SVG 路徑，修復語法錯誤
         const icons = {
             Calendar: <path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM16 2v4M8 2v4M3 10h18" />,
             MapPin: <g><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></g>,
@@ -72,130 +72,110 @@
             Loader2: <path d="M21 12a9 9 0 1 1-6.219-8.56" />,
             Users: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>,
             ShoppingBag: <g><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></g>,
-            Edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></g>
+            Edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></g>,
+            TrendingUp: <g><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></g>,
         };
 
         const Lucide = (name, props) => {
             return <Icon path={icons[name]} {...props} />;
         };
 
-        // --- 主程式 App ---
         function App() {
-            // --- 狀態管理 ---
+            // --- 狀態初始化 (防呆) ---
             const [currentView, setCurrentView] = useState('form');
-            
             const [logs, setLogs] = useState(() => {
-                try {
-                    const saved = localStorage.getItem('harvestLogs');
-                    return saved ? JSON.parse(saved) : [];
-                } catch (e) { return []; }
+                try { return JSON.parse(localStorage.getItem('harvestLogs') || '[]'); } catch { return []; }
             });
-
-            // 自己的選項 (老闆用的)
+            
+            // 老闆選項 - 防呆初始化
             const [options, setOptions] = useState(() => {
-                const defaultOptions = {
-                    products: ['石斑', '紅蟳', '文蛤', '牡蠣'],
-                    sizes: ['特大', '大', '中', '小', '規格外'],
-                    quantities: ['1 簍', '5 斤', '10 斤', '20 斤', '1 隻'],
-                    tideTypes: ['大潮', '小潮', '長潮', '若潮'],
-                    buyers: ['餐廳', '魚販', '零售', '自用', '盤商']
-                };
-                try {
-                    const saved = localStorage.getItem('harvestOptions');
-                    return saved ? JSON.parse(saved) : defaultOptions;
-                } catch (e) { return defaultOptions; }
+                const defaults = { products:[], sizes:[], quantities:[], tideTypes:['大潮','小潮','長潮','若潮'], buyers:['餐廳','魚販','零售'] };
+                try { 
+                    const saved = JSON.parse(localStorage.getItem('harvestOptions') || '{}');
+                    // 強制合併，確保 buyers 等新欄位存在
+                    return { ...defaults, ...saved }; 
+                } catch { return defaults; }
             });
-
-            // 廠商的選單 (存放在 localStorage 的 'vendorCategories' 鍵中)
+            
+            const [scriptUrl, setScriptUrl] = useState(() => localStorage.getItem('harvestScriptUrl') || 'https://script.google.com/macros/s/AKfycbxznCVO1QALHtUUJGbK1vYGW6AFieqnxgGqlkPgN6y2ZckSrpXUIEQNuGoGpQ4zlwzJFw/exec');
+            
+            // 廠商分類預設值 (完全依照您的清單)
+            const defaultCategories = {
+                "淡水水域": {
+                    "溪魚": ["馬口", "苦花", "石賓", "紅貓", "清貓(日本貓)"],
+                    "短尾": ["混血小䰾", "野生孔雀", "台灣石鮒", "齊式石鮒", "高體鰟鮍"],
+                    "長尾": ["蓋斑鬥魚(非原生)", "三星鬥魚", "劍尾魚", "鴛鴦魚"],
+                    "底棲": ["小瓢鉤", "櫻口鰍", "泥鰍", "中華花鰍"],
+                    "蝦虎": ["短吻紅斑(白尾)", "陽明山吻", "明潭吻蝦虎", "黑旗枝枒蝦虎", "紫身枝枒蝦虎", "環帶黃瓜蝦虎", "日本禿頭鯊蝦虎", "兔首禿頭鯊蝦虎"],
+                    "蝦類/其他": ["七星米蝦", "黑殼蝦", "紅華娘", "原生鯉(?)"]
+                },
+                "汽化水域(可淡化)": {
+                    "小型魚": ["大口湯鯉", "金錢魚(變身苦)", "銀鯧", "海水茉莉", "擬鯉短塘鱧", "台灣吻蝦虎"],
+                    "蝦虎": ["棕塘鱧", "頭孔塘鱧", "無孔塘鱧", "鶯哥鯊蝦虎", "種子鯊蝦虎", "硬皮諸神島蝦虎", "克利米蝦虎", "拜庫雷蝦虎", "阿部氏鯔鰕虎", "裸身蝦虎", "粘皮鯔鰕虎", "寬帶裸身蝦虎", "黑鰭枝牙蝦虎", "褐吻蝦虎", "極樂吻蝦虎", "明潭吻蝦虎", "短吻紅斑蝦虎", "細斑吻蝦虎", "斑帶吻蝦虎", "恆春吻蝦虎", "蘭嶼吻蝦虎", "曙首厚脣鯊", "寬頰瓢鰭蝦虎", "兔頭瓢鰭蝦虎", "日本禿頭鯊", "台灣縱紋獅子魚"],
+                    "洄游蝦": ["貪食藻蝦", "刺足藻蝦", "絨掌藻蝦", "忍者蝦/貴賓蝦", "蜜蜂網球蝦", "石紋網球蝦", "琥珀網球蝦", "潔白長臂蝦"],
+                    "河口蝦": ["霸王槍蝦", "短鼻槍蝦"],
+                    "海龍": ["無棘海龍"],
+                    "其他": ["廣東彈塗魚", "溪鯉(季節限定)"]
+                },
+                "出海口/半水陸": {
+                    "海苗": ["花身", "紅糟", "條紋豆娘"],
+                    "螃蟹": ["拉拉蟹", "顯齒澤蟹", "肥胖相手蟹", "帝王仿相手蟹", "紅螯螳臂蟹", "宮崎澤蟹", "灰白陸寄居蟹", "海寄居蟹"],
+                    "特殊": ["斑點竿鯊"],
+                    "其他": ["石蟳苗", "麵包蟹苗", "中國樹蟾", "淡水石狗公"]
+                }
+            };
+            
             const [vendorCategories, setVendorCategories] = useState(() => {
-                const defaultVendorCategories = {
-                    "淡水水域": {
-                        "溪魚": ["馬口", "苦花", "石賓", "紅貓", "清貓(日本貓)"],
-                        "短尾": ["混血小䰾", "野生孔雀", "台灣石鮒", "齊式石鮒", "高體鰟鮍"],
-                        "長尾": ["蓋斑鬥魚(非原生)", "三星鬥魚", "劍尾魚", "鴛鴦魚"],
-                        "底棲": ["小瓢鉤", "櫻口鰍", "泥鰍", "中華花鰍"],
-                        "蝦": ["粗糙沼蝦", "貪食沼蝦", "台灣沼蝦", "細額沼蝦", "擬多齒米蝦", "多齒新米蝦(黑殼蝦)", "網球蝦", "衛氏米蝦"],
-                        "螺貝": ["圓田螺", "石田螺", "囊螺", "錐蜷", "網蜷", "蜆(鹹蜆)", "河蚌"],
-                        "其他": ["其他淡水魚"]
-                    },
-                    "汽化水域(可淡化)": {
-                        "小型魚": ["大口湯鯉", "金錢魚(變身苦)", "銀鯧", "海水茉莉", "擬鯉短塘鱧", "台灣吻蝦虎"],
-                        "蝦虎": ["棕塘鱧", "頭孔塘鱧", "無孔塘鱧", "鶯哥鯊蝦虎", "種子鯊蝦虎", "硬皮諸神島蝦虎", "克利米蝦虎", "拜庫雷蝦虎", "阿部氏鯔鰕虎", "裸身蝦虎", "粘皮鯔鰕虎", "寬帶裸身蝦虎", "黑鰭枝牙蝦虎", "褐吻蝦虎", "極樂吻蝦虎", "明潭吻蝦虎", "短吻紅斑蝦虎", "細斑吻蝦虎", "斑帶吻蝦虎", "恆春吻蝦虎", "蘭嶼吻蝦虎", "曙首厚脣鯊", "寬頰瓢鰭蝦虎", "兔頭瓢鰭蝦虎", "日本禿頭鯊", "台灣縱紋獅子魚"],
-                        "蝦": ["大和米蝦", "槍蝦"],
-                        "螺貝": ["笠螺", "蜜蜂角螺", "彩蛋螺", "鑽紋螺", "燒酒螺", "珠螺", "正得氏芝麻螺", "蚵岩螺", "結螺", "玉黍螺", "鳳螺", "寶螺", "芋螺", "鐘螺", "蜆(赤嘴)", "牡蠣"],
-                        "其他": ["其他汽水域生物"]
-                    },
-                    "出海口/半水陸": {
-                        "海苗": ["花身", "紅糟", "條紋豆娘"],
-                        "螃蟹": ["拉拉蟹", "顯齒澤蟹", "肥胖相手蟹", "帝王仿相手蟹", "紅螯螳臂蟹", "宮崎澤蟹", "灰白陸寄居蟹", "海寄居蟹"],
-                        "特殊": ["斑點竿鯊"],
-                        "其他": ["石蟳苗", "麵包蟹苗", "中國樹蟾", "淡水石狗公"]
-                    }
-                };
                 try {
-                    const saved = localStorage.getItem('vendorCategories');
-                    return saved ? JSON.parse(saved) : defaultVendorCategories;
-                } catch (e) { return defaultVendorCategories; }
+                    const saved = JSON.parse(localStorage.getItem('vendorCategories') || '{}');
+                    return (Object.keys(saved).length > 0) ? { ...defaultCategories, ...saved } : defaultCategories;
+                } catch { return defaultCategories; }
             });
 
-            // 編輯廠商選單的狀態
-            const [editingVendor, setEditingVendor] = useState({
-                cat: Object.keys(vendorCategories)[0],
-                sub: Object.keys(vendorCategories[Object.keys(vendorCategories)[0]])[0],
-                item: null, 
-                oldVal: '',
-                editingIndex: null 
+            // 編輯狀態
+            const [editingVendor, setEditingVendor] = useState(() => {
+                const cats = Object.keys(vendorCategories);
+                if (cats.length > 0) {
+                    const firstCat = cats[0];
+                    const subs = Object.keys(vendorCategories[firstCat] || {});
+                    return { cat: firstCat, sub: subs[0] || '', editingIndex: null };
+                }
+                return { cat: '', sub: '', editingIndex: null };
             });
             const [newVendorItem, setNewVendorItem] = useState('');
             const [editItemValue, setEditItemValue] = useState('');
-
-            // Script URL
-            const [scriptUrl, setScriptUrl] = useState(() => {
-                return localStorage.getItem('harvestScriptUrl') || 'https://script.google.com/macros/s/AKfycbxznCVO1QALHtUUJGbK1vYGW6AFieqnxgGqlkPgN6y2ZckSrpXUIEQNuGoGpQ4zlwzJFw/exec';
-            });
             const [isEditingUrl, setIsEditingUrl] = useState(false);
 
-            // 表單相關
-            const [formData, setFormData] = useState({
-                date: new Date().toISOString().split('T')[0],
-                location: '',
-                tideRegion: '', specificSpot: '', tideType: '大潮', relativeHeight: '',
-                buyer: '', costTransport: '', costToll: '', costOther: '', notes: ''
-            });
+            // 表單欄位
+            const [formData, setFormData] = useState({ date: new Date().toISOString().split('T')[0], location1: '', location2: '', location3: '', tideRegion: '', tideType: '大潮', tideHeight1: '', tideHeight2: '', tideHeight3: '', buyer1: '', buyer2: '', salesAmount: '', costTransport: '', costToll: '', costOther: '', notes: '' });
             const [harvests, setHarvests] = useState(Array(5).fill().map(() => ({ product: '', size: '', quantity: '' })));
             const [photoFile, setPhotoFile] = useState(null);
             const [photoPreview, setPhotoPreview] = useState(null);
-            const fileInputRef = useRef(null);
-            const [locationStatus, setLocationStatus] = useState('idle'); 
-            const [locationError, setLocationError] = useState('');
+            const [locationStatus, setLocationStatus] = useState('idle');
             const [uploadStatus, setUploadStatus] = useState('idle');
+            const fileInputRef = useRef(null);
 
             // --- 效果 ---
             useEffect(() => localStorage.setItem('harvestLogs', JSON.stringify(logs)), [logs]);
             useEffect(() => localStorage.setItem('harvestOptions', JSON.stringify(options)), [options]);
-            // 重要：儲存廠商選單到 LocalStorage
             useEffect(() => localStorage.setItem('vendorCategories', JSON.stringify(vendorCategories)), [vendorCategories]);
             useEffect(() => localStorage.setItem('harvestScriptUrl', scriptUrl), [scriptUrl]);
+
+            // Default Buyer
             useEffect(() => {
                 const buyers = options.buyers || [];
-                if (!formData.buyer && buyers.length > 0) setFormData(prev => ({ ...prev, buyer: buyers[0] }));
+                if (!formData.buyer1 && buyers.length > 0) setFormData(prev => ({ ...prev, buyer1: buyers[0] }));
             }, [options]);
 
-            // --- 功能函數 ---
-            const handleInputChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
-            const handleHarvestChange = (index, field, value) => {
-                const newHarvests = [...harvests]; newHarvests[index] = { ...newHarvests[index], [field]: value }; setHarvests(newHarvests);
-            };
-            const getLocation = () => {
-                setLocationStatus('loading'); setLocationError('');
-                if (!navigator.geolocation) { setLocationStatus('error'); setLocationError('裝置不支援'); return; }
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const loc = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
-                        setFormData(prev => ({ ...prev, location: loc })); setLocationStatus('success');
-                    },
-                    (err) => { console.error(err); setLocationStatus('error'); setLocationError('定位失敗'); }
-                );
+            const handleInputChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+            const handleHarvestChange = (i, f, v) => { const n = [...harvests]; n[i][f] = v; setHarvests(n); };
+            const getLocation = (field) => {
+                setLocationStatus('loading');
+                if (!navigator.geolocation) { setLocationStatus('error'); return; }
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    const loc = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+                    setFormData(prev => ({ ...prev, [field]: loc })); setLocationStatus('success');
+                }, () => setLocationStatus('error'));
             };
             const openGoogleMaps = () => window.open('https://www.google.com/maps', '_blank');
             const handlePhotoSelect = (e) => {
@@ -207,113 +187,131 @@
                 r.onload = () => resolve({ base64: r.result.split(',')[1], mimeType: file.type, fileName: file.name });
                 r.onerror = reject;
             });
+
             const handleSubmit = async (e) => {
                 e.preventDefault(); setUploadStatus('uploading');
                 const validHarvests = harvests.filter(h => h.product && h.product.trim() !== '');
                 const productStr = validHarvests.map(h => h.product).join('\n');
                 const sizeStr = validHarvests.map(h => h.size).join('\n');
                 const quantityStr = validHarvests.map(h => h.quantity).join('\n');
-                const mainProduct = validHarvests.length > 0 ? validHarvests[0].product : '未分類';
-                const summaryText = validHarvests.length > 1 ? `${mainProduct}等${validHarvests.length}樣` : mainProduct;
+                const summaryText = validHarvests.length > 0 ? (validHarvests.length > 1 ? `${validHarvests[0].product}等${validHarvests.length}樣` : validHarvests[0].product) : '未分類';
                 const timestamp = new Date().toLocaleString();
-                const newLog = { id: Date.now(), timestamp, ...formData, product: productStr, size: sizeStr, quantity: quantityStr, displaySummary: summaryText, rawHarvests: validHarvests, hasPhoto: !!photoFile, cloudSynced: false };
+                
+                const sales = Number(formData.salesAmount) || 0;
+                const costs = (Number(formData.costTransport)||0) + (Number(formData.costToll)||0) + (Number(formData.costOther)||0);
+                const profit = sales - costs;
+                const newLog = { id: Date.now(), timestamp, ...formData, product: productStr, size: sizeStr, quantity: quantityStr, displaySummary: summaryText, rawHarvests: validHarvests, hasPhoto: !!photoFile, cloudSynced: false, totalProfit: profit };
 
                 if (scriptUrl) {
                     try {
                         let imageData = null; if (photoFile) imageData = await fileToBase64(photoFile);
+                        const locStr = [formData.location1, formData.location2, formData.location3].filter(Boolean).join('\n');
+                        const tideStr = [formData.tideHeight1, formData.tideHeight2, formData.tideHeight3].filter(Boolean).join(', ');
+                        const buyerStr = [formData.buyer1, formData.buyer2].filter(Boolean).join(', ');
                         const payload = {
                             ...newLog, product: productStr || '(無)', size: sizeStr || '-', quantity: quantityStr || '-',
-                            notes: `[對象:${formData.buyer}] ${formData.notes}`, imageBase64: imageData?.base64 || '', imageMimeType: imageData?.mimeType || ''
+                            location: locStr, relativeHeight: tideStr, buyer: buyerStr,
+                            notes: `[獲利:${profit}] ${formData.notes}`, imageBase64: imageData?.base64 || '', imageMimeType: imageData?.mimeType || ''
                         };
                         await fetch(scriptUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                         newLog.cloudSynced = true; alert('已同步至雲端！');
                     } catch (error) { console.error(error); alert('上傳失敗，僅存本地'); }
                 } else { alert('已存本地'); }
                 setLogs([newLog, ...logs]); setUploadStatus('idle');
-                setFormData(prev => ({ ...prev, costTransport: '', costToll: '', costOther: '', notes: '' }));
+                setFormData(prev => ({ ...prev, costTransport: '', costToll: '', costOther: '', notes: '', salesAmount: '', buyer2: '', location1: '', location2: '', location3: '', tideHeight1: '', tideHeight2: '', tideHeight3: '' }));
                 setHarvests(Array(5).fill().map(() => ({ product: '', size: '', quantity: '' })));
                 setPhotoFile(null); setPhotoPreview(null); setCurrentView('history');
             };
+
             const deleteLog = (id) => { if (confirm('確定刪除？')) setLogs(logs.filter(l => l.id !== id)); };
-            const addOption = (category, value) => { if (!value.trim()) return; setOptions(prev => ({ ...prev, [category]: [...(prev[category] || []), value] })); };
-            const removeOption = (category, index) => { setOptions(prev => ({ ...prev, [category]: (prev[category] || []).filter((_, i) => i !== index) })); };
-            const openTideUrl = () => {
-                const w = window.open("https://www.cwa.gov.tw/V8/C/M/tide.html", '_blank');
-                if (!w || w.closed) prompt("請複製網址:", "https://www.cwa.gov.tw/V8/C/M/tide.html");
+            
+            // --- 選項設定功能 ---
+            const addOption = (category, value) => {
+                if (!value.trim()) return;
+                setOptions(prev => ({ ...prev, [category]: [...(prev[category] || []), value] }));
+            };
+            const removeOption = (category, index) => {
+                setOptions(prev => ({ ...prev, [category]: (prev[category] || []).filter((_, i) => i !== index) }));
             };
 
-            // --- 廠商選單管理功能 (強化修正版) ---
+            const openTideUrl = () => { const w = window.open("https://www.cwa.gov.tw/V8/C/M/tide.html", '_blank'); if (!w || w.closed) prompt("請複製網址:", "https://www.cwa.gov.tw/V8/C/M/tide.html"); };
+
+            // 廠商選單管理
             const addVendorItem = () => {
                 if (!newVendorItem.trim()) return;
                 const { cat, sub } = editingVendor;
                 setVendorCategories(prev => {
-                    const newCats = JSON.parse(JSON.stringify(prev)); // Deep copy
+                    const newCats = JSON.parse(JSON.stringify(prev));
                     if (!newCats[cat]) newCats[cat] = {};
                     if (!newCats[cat][sub]) newCats[cat][sub] = [];
-                    
-                    if (!newCats[cat][sub].includes(newVendorItem)) {
-                        newCats[cat][sub].push(newVendorItem);
-                    }
+                    if (!newCats[cat][sub].includes(newVendorItem)) newCats[cat][sub].push(newVendorItem);
                     return newCats;
                 });
                 setNewVendorItem('');
             };
-
-            // 關鍵修正：獨立刪除函數，使用 filter 確保陣列更新
-            const removeVendorItem = (indexToDelete) => {
+            
+            // 修正刪除功能：使用 event 來阻擋冒泡，並確保抓到正確的 item
+            const removeVendorItem = (e, indexToRemove) => {
+                e.stopPropagation(); // 阻止事件冒泡，避免觸發編輯
+                e.preventDefault();
+                
                 const { cat, sub } = editingVendor;
-                const item = vendorCategories[cat][sub][indexToDelete];
-                if(window.confirm(`確定刪除「${item}」嗎？`)) {
+                const item = vendorCategories[cat]?.[sub]?.[indexToRemove];
+                
+                if (item && window.confirm(`確定要刪除「${item}」嗎？`)) {
                     setVendorCategories(prev => {
                         const newCats = JSON.parse(JSON.stringify(prev));
-                        newCats[cat][sub] = newCats[cat][sub].filter((_, idx) => idx !== indexToDelete);
+                        if (newCats[cat] && newCats[cat][sub]) {
+                            newCats[cat][sub] = newCats[cat][sub].filter((_, idx) => idx !== indexToRemove);
+                        }
                         return newCats;
                     });
                 }
             };
-
-            // 啟動修改模式
-            const startEditVendorItem = (item, index) => {
-                setEditingVendor(prev => ({ ...prev, editingIndex: index }));
-                setEditItemValue(item);
-            };
-
-            // 儲存修改
+            
+            const startEditVendorItem = (item, idx) => { setEditingVendor(prev => ({ ...prev, editingIndex: idx })); setEditItemValue(item); };
             const saveEditVendorItem = () => {
                 if (!editItemValue.trim()) return;
                 const { cat, sub, editingIndex } = editingVendor;
                 setVendorCategories(prev => {
                     const newCats = JSON.parse(JSON.stringify(prev));
-                    if (newCats[cat] && newCats[cat][sub]) {
-                        newCats[cat][sub][editingIndex] = editItemValue;
-                    }
+                    newCats[cat][sub][editingIndex] = editItemValue;
                     return newCats;
                 });
-                setEditingVendor(prev => ({ ...prev, editingIndex: null }));
-                setEditItemValue('');
+                setEditingVendor(prev => ({ ...prev, editingIndex: null })); setEditItemValue('');
             };
+            const cancelEditVendorItem = () => { setEditingVendor(prev => ({ ...prev, editingIndex: null })); setEditItemValue(''); };
 
-            // 取消修改
-            const cancelEditVendorItem = () => {
-                setEditingVendor(prev => ({ ...prev, editingIndex: null }));
-                setEditItemValue('');
-            };
-
-            // --- 子組件 ---
-            const SettingsSection = ({ title, category, iconName }) => {
+            // 子組件
+            const SettingsSection = ({ title, category, iconName, options, addOption, removeOption }) => {
                 const [val, setVal] = useState('');
-                const items = options[category] || [];
                 return (
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-4">
                         <div className="flex items-center gap-2 mb-3 text-slate-700 font-semibold">{Lucide(iconName, {size: 18})} <span>{title}設定</span></div>
                         <div className="flex gap-2 mb-3">
-                            <input type="text" value={val} onChange={(e) => setVal(e.target.value)} placeholder={`新增${title}...`} className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                            <button onClick={() => { addOption(category, val); setVal(''); }} className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700">{Lucide('Plus', {size: 18})}</button>
+                            <input 
+                                className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+                                value={val} 
+                                onChange={e=>setVal(e.target.value)} 
+                                placeholder={`新增${title}...`} 
+                            />
+                            <button 
+                                onClick={() => { if(val.trim()){ addOption(category, val); setVal(''); } }} 
+                                className="bg-blue-600 text-white p-1.5 rounded hover:bg-blue-700"
+                            >
+                                {Lucide('Plus', {size: 18})}
+                            </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {items.map((item, i) => (
-                                <span key={i} className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs flex items-center gap-1">
-                                    {item} <button onClick={() => removeOption(category, i)} className="text-slate-400 hover:text-red-500">×</button>
+                            {(options[category]||[]).map((it,i) => (
+                                <span key={i} className="bg-slate-100 px-2 py-1 rounded text-xs flex items-center gap-1">
+                                    {it} 
+                                    <button 
+                                        onClick={() => removeOption(category, i)} 
+                                        className="text-slate-400 hover:text-red-500 font-bold ml-1"
+                                    >
+                                        ×
+                                    </button>
                                 </span>
                             ))}
                         </div>
@@ -321,47 +319,52 @@
                 );
             };
 
-            // --- Render ---
+            // 獲利
+            const sales = Number(formData.salesAmount) || 0;
+            const costs = (Number(formData.costTransport)||0) + (Number(formData.costToll)||0) + (Number(formData.costOther)||0);
+            const profit = sales - costs;
+
             return (
-                <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-800">
-                    <header className="bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 shadow-lg sticky top-0 z-50">
+                <div className="flex flex-col h-full bg-slate-50 font-sans text-slate-800 overflow-hidden">
+                    <header className="flex-none bg-gradient-to-r from-blue-700 to-cyan-600 text-white p-4 shadow-lg sticky top-0 z-50">
                         <div className="flex justify-between items-center max-w-3xl mx-auto">
                             <h1 className="text-xl font-bold flex items-center gap-2">{Lucide('Anchor', {className: "text-cyan-200"})} 漁獲採集日誌</h1>
                             <div className="text-xs bg-white/20 px-2 py-1 rounded-full">{new Date().toLocaleDateString()}</div>
                         </div>
                     </header>
 
-                    <main className="max-w-3xl mx-auto p-4">
+                    <main className="flex-1 overflow-y-auto max-w-3xl mx-auto p-4 pb-24 w-full">
                         {currentView === 'form' && (
                             <form onSubmit={handleSubmit} className="space-y-6">
-                                {/* 表單內容 (省略重複部分) */}
+                                {/* 1. 基礎資訊 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">
-                                        {Lucide('MapPin', {size: 16})} 基礎資訊
-                                    </div>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('MapPin', {size: 16})} 基礎資訊</div>
                                     <div className="p-4 grid gap-4">
-                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">日期</label><input type="date" name="date" required value={formData.date} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 pl-2 focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">作業地點</label><div className="flex gap-2"><input type="text" name="location" placeholder="手動輸入或點擊定位" value={formData.location} onChange={handleInputChange} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:ring-2 focus:ring-blue-500 outline-none" /><button type="button" onClick={getLocation} disabled={locationStatus === 'loading'} className="px-3 rounded-xl bg-cyan-600 text-white flex items-center justify-center min-w-[80px]">{locationStatus === 'loading' ? <span className="animate-spin">⌛</span> : '定位'}</button></div>{locationStatus === 'success' && <p className="text-xs text-green-600 mt-1">✓ 定位成功</p>}</div>
+                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">日期</label><input type="date" name="date" required value={formData.date} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 pl-2 outline-none" /></div>
+                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">作業地點 1</label><div className="flex gap-2"><input type="text" name="location1" placeholder="定位或輸入" value={formData.location1} onChange={handleInputChange} className="flex-1 border rounded-xl px-3 py-3 outline-none" /><button type="button" onClick={()=>getLocation('location1')} className="px-3 rounded-xl bg-cyan-600 text-white text-xs">定位</button></div></div>
+                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">作業地點 2</label><div className="flex gap-2"><input type="text" name="location2" placeholder="選填" value={formData.location2} onChange={handleInputChange} className="flex-1 border rounded-xl px-3 py-3 outline-none" /><button type="button" onClick={()=>getLocation('location2')} className="px-3 rounded-xl bg-cyan-600 text-white text-xs">定位</button></div></div>
+                                        <div><label className="block text-xs font-bold text-slate-500 mb-1">作業地點 3</label><div className="flex gap-2"><input type="text" name="location3" placeholder="選填" value={formData.location3} onChange={handleInputChange} className="flex-1 border rounded-xl px-3 py-3 outline-none" /><button type="button" onClick={()=>getLocation('location3')} className="px-3 rounded-xl bg-cyan-600 text-white text-xs">定位</button></div></div>
+                                        <button type="button" onClick={openGoogleMaps} className="w-full py-2 bg-slate-100 text-slate-500 rounded-lg text-sm flex items-center justify-center gap-1">{Lucide('Map', {size:16})} 開啟地圖</button>
                                     </div>
                                 </section>
+
                                 {/* 2. 環境水文 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-slate-600 font-medium">
-                                        <div className="flex gap-2">{Lucide('Waves', {size: 16})} 環境水文</div>
-                                        <button type="button" onClick={openTideUrl} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex gap-1">{Lucide('ExternalLink', {size: 12})} 潮汐表</button>
-                                    </div>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center text-slate-600 font-medium"><div>{Lucide('Waves', {size: 16})} 環境水文</div><button type="button" onClick={openTideUrl} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">潮汐表</button></div>
                                     <div className="p-4 grid grid-cols-2 gap-4">
-                                        <div className="col-span-2"><input type="text" name="tideRegion" placeholder="潮差地區 (大範圍)" value={formData.tideRegion} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
-                                        <div><select name="tideType" value={formData.tideType} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none">{options.tideTypes?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
-                                        <div><input type="text" name="relativeHeight" placeholder="相對高度" value={formData.relativeHeight} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
-                                        <div className="col-span-2"><input type="text" name="specificSpot" placeholder="細部地點/地標" value={formData.specificSpot} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
+                                        <div className="col-span-2"><input name="tideRegion" placeholder="潮差地區 (大範圍)" value={formData.tideRegion} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none" /></div>
+                                        <div className="col-span-2"><select name="tideType" value={formData.tideType} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none">{options.tideTypes?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                                        <div className="col-span-2 grid grid-cols-3 gap-2">
+                                            <input name="tideHeight1" placeholder="潮差 1" value={formData.tideHeight1} onChange={handleInputChange} className="border rounded px-2 py-2 text-center" />
+                                            <input name="tideHeight2" placeholder="潮差 2" value={formData.tideHeight2} onChange={handleInputChange} className="border rounded px-2 py-2 text-center" />
+                                            <input name="tideHeight3" placeholder="潮差 3" value={formData.tideHeight3} onChange={handleInputChange} className="border rounded px-2 py-2 text-center" />
+                                        </div>
                                     </div>
                                 </section>
+
                                 {/* 3. 收穫成果 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-green-500">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between text-slate-600 font-medium">
-                                        <div className="flex gap-2">{Lucide('Fish', {size: 16})} 收穫成果</div><span className="text-xs text-slate-400">選項於設定新增</span>
-                                    </div>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center text-slate-600 font-medium"><div>{Lucide('Fish', {size: 16})} 收穫成果</div><span className="text-xs text-slate-400">設定新增</span></div>
                                     <div className="p-4 space-y-4">
                                         {harvests.map((item, idx) => (
                                             <div key={idx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 grid gap-2">
@@ -379,24 +382,44 @@
                                         </div>
                                     </div>
                                 </section>
-                                {/* 4. 銷售成本 */}
+
+                                {/* 4. 成本區 */}
+                                <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-red-400">
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('DollarSign', {size:16})} 成本支出</div>
+                                    <div className="p-4 grid grid-cols-3 gap-2">
+                                        <div><label className="text-xs font-bold text-slate-500">車資</label><input type="number" name="costTransport" placeholder="0" value={formData.costTransport} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
+                                        <div><label className="text-xs font-bold text-slate-500">過路費</label><input type="number" name="costToll" placeholder="0" value={formData.costToll} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
+                                        <div><label className="text-xs font-bold text-slate-500">其他</label><input type="number" name="costOther" placeholder="0" value={formData.costOther} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
+                                        <div className="col-span-3 text-right text-sm text-red-500 font-bold mt-1">總成本: {costs}</div>
+                                    </div>
+                                </section>
+
+                                {/* 5. 銷售區 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden border-l-4 border-l-orange-400">
-                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('ShoppingBag', {size:16})} 銷售與成本</div>
+                                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('ShoppingBag', {size:16})} 銷售收入</div>
                                     <div className="p-4 space-y-3">
-                                        <div><label className="text-xs font-bold text-slate-500">出貨對象</label><select name="buyer" value={formData.buyer} onChange={handleInputChange} className="w-full border rounded px-3 py-2 mt-1"><option value="" disabled>請選擇</option>{options.buyers?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <div><label className="text-xs font-bold text-slate-500">車資</label><input type="number" name="costTransport" placeholder="0" value={formData.costTransport} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
-                                            <div><label className="text-xs font-bold text-slate-500">過路費</label><input type="number" name="costToll" placeholder="0" value={formData.costToll} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
-                                            <div><label className="text-xs font-bold text-slate-500">其他</label><input type="number" name="costOther" placeholder="0" value={formData.costOther} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1 text-right" /></div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div><label className="text-xs font-bold text-slate-500">出貨對象 1</label><select name="buyer1" value={formData.buyer1} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1"><option value="" disabled>請選擇</option>{options.buyers?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                                            <div><label className="text-xs font-bold text-slate-500">出貨對象 2</label><select name="buyer2" value={formData.buyer2} onChange={handleInputChange} className="w-full border rounded px-2 py-2 mt-1"><option value="">(無)</option>{options.buyers?.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500">銷售總金額</label>
+                                            <input type="number" name="salesAmount" placeholder="0" value={formData.salesAmount} onChange={handleInputChange} className="w-full border rounded px-3 py-2 mt-1 text-right text-lg font-bold text-orange-600" />
+                                        </div>
+                                        <div className="bg-orange-50 p-3 rounded-lg flex justify-between items-center mt-2 border border-orange-100">
+                                            <span className="text-sm font-bold text-slate-600 flex items-center gap-1">{Lucide('TrendingUp', {size:16})} 預估獲利</span>
+                                            <span className={`text-xl font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>{profit >= 0 ? '+' : ''}{profit}</span>
                                         </div>
                                     </div>
                                 </section>
-                                {/* 5. 備註 */}
+
+                                {/* 6. 備註 */}
                                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                                     <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 text-slate-600 font-medium">{Lucide('FileText', {size:16})} 備註</div>
                                     <div className="p-4"><textarea name="notes" placeholder="備註..." value={formData.notes} onChange={handleInputChange} className="w-full border rounded-lg p-3 h-20 outline-none resize-none"></textarea></div>
                                 </section>
-                                <button type="submit" disabled={uploadStatus==='uploading'} className={`w-full py-4 rounded-2xl text-white font-bold text-lg flex justify-center items-center gap-2 ${uploadStatus==='uploading'?'bg-slate-400':'bg-blue-600'}`}>{uploadStatus==='uploading'?<><span className="animate-spin">⌛</span>上傳中...</>:<>{Lucide('Save', {size:20})} 儲存紀錄</>}</button>
+                                
+                                <button type="submit" disabled={uploadStatus==='uploading'} className={`w-full py-4 rounded-2xl text-white font-bold text-lg flex justify-center items-center gap-2 ${uploadStatus==='uploading'?'bg-slate-400':'bg-blue-600'}`}>{uploadStatus==='uploading'?<><span className="animate-spin">{Lucide('Loader2', {size: 24})}</span> 上傳中...</>:<>{Lucide('Save', {size:20})} 儲存紀錄</>}</button>
                                 <div className="h-4"></div>
                             </form>
                         )}
@@ -404,89 +427,40 @@
                         {currentView === 'settings' && (
                             <div className="animate-fade-in pb-10">
                                 <h2 className="text-xl font-bold mb-4 text-slate-700">選單設定</h2>
-                                
-                                {/* 雲端網址 */}
                                 <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6 border-l-4 border-l-blue-500">
                                     <div className="flex items-center gap-2 mb-2 text-blue-800 font-bold">{Lucide('Cloud', {size: 18})} <span>雲端同步設定</span></div>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={scriptUrl} onChange={(e) => setScriptUrl(e.target.value)} disabled={!isEditingUrl} className={`flex-1 border rounded px-2 py-1 text-sm ${!isEditingUrl?'bg-slate-100 text-slate-500':''}`} />
-                                        <button onClick={() => { if(isEditingUrl) alert('已儲存'); setIsEditingUrl(!isEditingUrl); }} className={`px-3 rounded text-sm text-white ${isEditingUrl?'bg-green-600':'bg-blue-600'}`}>{isEditingUrl?'確認':'修改'}</button>
-                                    </div>
+                                    <div className="flex gap-2"><input type="text" value={scriptUrl} onChange={(e) => setScriptUrl(e.target.value)} disabled={!isEditingUrl} className={`flex-1 border rounded px-2 py-1 text-sm ${!isEditingUrl?'bg-slate-100 text-slate-500':''}`} /><button onClick={() => { if(isEditingUrl) alert('已儲存'); setIsEditingUrl(!isEditingUrl); }} className={`px-3 rounded text-sm text-white ${isEditingUrl?'bg-green-600':'bg-blue-600'}`}>{isEditingUrl?'確認':'修改'}</button></div>
                                 </div>
-
-                                {/* 本地日誌選項 */}
                                 <h3 className="font-bold text-gray-500 mb-2 mt-6 border-b pb-1">您的日誌選項</h3>
-                                <SettingsSection title="產品" category="products" iconName="Fish" />
-                                <SettingsSection title="規格" category="sizes" iconName="Waves" />
-                                <SettingsSection title="數量" category="quantities" iconName="Anchor" />
-                                <SettingsSection title="潮汐" category="tideTypes" iconName="Waves" />
-                                <SettingsSection title="出貨對象" category="buyers" iconName="Users" />
-
-                                {/* 廠商選單管理 */}
-                                <h3 className="font-bold text-orange-500 mb-2 mt-8 border-b border-orange-200 pb-1 flex items-center gap-2">
-                                    {Lucide('Edit', {size:18})} 廠商訂購單選項管理
-                                </h3>
+                                <SettingsSection title="產品" category="products" iconName="Fish" options={options} addOption={addOption} removeOption={removeOption} />
+                                <SettingsSection title="規格" category="sizes" iconName="Waves" options={options} addOption={addOption} removeOption={removeOption} />
+                                <SettingsSection title="數量" category="quantities" iconName="Anchor" options={options} addOption={addOption} removeOption={removeOption} />
+                                <SettingsSection title="潮汐" category="tideTypes" iconName="Waves" options={options} addOption={addOption} removeOption={removeOption} />
+                                <SettingsSection title="出貨對象" category="buyers" iconName="Users" options={options} addOption={addOption} removeOption={removeOption} />
+                                
+                                <h3 className="font-bold text-orange-500 mb-2 mt-8 border-b border-orange-200 pb-1 flex items-center gap-2">{Lucide('Edit', {size:18})} 廠商訂購單選項管理</h3>
                                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
-                                    <p className="text-xs text-orange-700 mb-3">此處修改會同步到 <b>vendor.html</b> (需在同網域下)。點擊品項可修改，點擊右側 × 刪除。</p>
-                                    
+                                    <p className="text-xs text-orange-700 mb-3">此處修改會同步到 vendor.html (需同網域)。點擊品項修改，點擊右側 × 刪除。</p>
                                     <div className="flex gap-2 mb-3">
-                                        <select 
-                                            value={editingVendor.cat} 
-                                            onChange={(e) => setEditingVendor({cat: e.target.value, sub: Object.keys(vendorCategories[e.target.value])[0], editingIndex: null})}
-                                            className="w-1/2 border rounded px-2 py-1 text-sm"
-                                        >
-                                            {Object.keys(vendorCategories).map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                        <select 
-                                            value={editingVendor.sub} 
-                                            onChange={(e) => setEditingVendor(prev => ({...prev, sub: e.target.value, editingIndex: null}))}
-                                            className="w-1/2 border rounded px-2 py-1 text-sm"
-                                        >
-                                            {Object.keys(vendorCategories[editingVendor.cat]).map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
+                                        <select value={editingVendor.cat} onChange={(e) => setEditingVendor({cat: e.target.value, sub: Object.keys(vendorCategories[e.target.value])[0], editingIndex: null})} className="w-1/2 border rounded px-2 py-1 text-sm">{Object.keys(vendorCategories).map(c => <option key={c} value={c}>{c}</option>)}</select>
+                                        <select value={editingVendor.sub} onChange={(e) => setEditingVendor(prev => ({...prev, sub: e.target.value, editingIndex: null}))} className="w-1/2 border rounded px-2 py-1 text-sm">{Object.keys(vendorCategories[editingVendor.cat]).map(s => <option key={s} value={s}>{s}</option>)}</select>
                                     </div>
-
                                     <div className="flex gap-2 mb-3">
-                                        <input 
-                                            type="text" 
-                                            value={newVendorItem} 
-                                            onChange={(e) => setNewVendorItem(e.target.value)} 
-                                            placeholder={`新增品項到 [${editingVendor.sub}]...`} 
-                                            className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-orange-400"
-                                        />
+                                        <input type="text" value={newVendorItem} onChange={(e) => setNewVendorItem(e.target.value)} placeholder={`新增品項到 [${editingVendor.sub}]...`} className="flex-1 border rounded px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-orange-400" />
                                         <button onClick={addVendorItem} className="bg-orange-500 text-white px-3 rounded hover:bg-orange-600">{Lucide('Plus', {size:18})}</button>
                                     </div>
-
                                     <div className="flex flex-wrap gap-2">
                                         {vendorCategories[editingVendor.cat][editingVendor.sub].map((item, i) => (
                                             editingVendor.editingIndex === i ? (
                                                 <div key={i} className="flex gap-1 items-center bg-white border border-orange-400 px-1 py-1 rounded shadow-sm">
-                                                    <input 
-                                                        type="text" 
-                                                        value={editItemValue} 
-                                                        onChange={(e) => setEditItemValue(e.target.value)} 
-                                                        className="w-24 text-sm outline-none"
-                                                        autoFocus
-                                                    />
+                                                    <input type="text" value={editItemValue} onChange={(e) => setEditItemValue(e.target.value)} className="w-24 text-sm outline-none" autoFocus />
                                                     <button onClick={saveEditVendorItem} className="text-green-500 font-bold px-1 hover:bg-green-50 rounded">✓</button>
                                                     <button onClick={cancelEditVendorItem} className="text-red-500 font-bold px-1 hover:bg-red-50 rounded">×</button>
                                                 </div>
                                             ) : (
                                                 <div key={i} className="flex items-center gap-1 bg-white border border-orange-200 text-orange-800 px-2 py-1 rounded text-sm shadow-sm hover:bg-orange-50 group">
                                                     <span className="cursor-pointer hover:underline" onClick={() => startEditVendorItem(item, i)}>{item}</span>
-                                                    
-                                                    {/* 獨立刪除按鈕：完全隔離的點擊事件 */}
-                                                    <button 
-                                                        type="button"
-                                                        onClick={(e) => { 
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            removeVendorItem(i); 
-                                                        }}
-                                                        className="ml-2 w-5 h-5 flex items-center justify-center bg-red-100 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-colors cursor-pointer z-50"
-                                                    >
-                                                        ×
-                                                    </button>
+                                                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeVendorItem(e, i); }} className="ml-2 w-5 h-5 flex items-center justify-center bg-red-100 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-colors cursor-pointer z-50">×</button>
                                                 </div>
                                             )
                                         ))}
@@ -494,14 +468,30 @@
                                 </div>
                             </div>
                         )}
-                        
-                        {/* 底部導航 */}
-                        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-around">
-                            <button onClick={()=>setCurrentView('form')} className={`p-3 rounded-xl flex flex-col items-center w-20 text-xs ${currentView==='form'?'text-blue-600':'text-gray-400'}`}>{Lucide('Plus', {size:24})}<span>記一筆</span></button>
-                            <button onClick={()=>setCurrentView('history')} className={`p-3 rounded-xl flex flex-col items-center w-20 text-xs ${currentView==='history'?'text-blue-600':'text-gray-400'}`}>{Lucide('History', {size:24})}<span>紀錄</span></button>
-                            <button onClick={()=>setCurrentView('settings')} className={`p-3 rounded-xl flex flex-col items-center w-20 text-xs ${currentView==='settings'?'text-blue-600':'text-gray-400'}`}>{Lucide('Settings', {size:24})}<span>設定</span></button>
-                        </nav>
+
+                        {currentView === 'history' && (
+                            <div className="space-y-4 animate-fade-in">
+                                <h2 className="text-xl font-bold mb-4 text-slate-700 flex justify-between"><span>歷史紀錄 ({logs.length})</span><button onClick={()=>{if(confirm('清除全部?'))setLogs([])}} className="text-xs text-red-400">清除全部</button></h2>
+                                {logs.length===0?<div className="text-center text-slate-400 py-10">尚無紀錄</div>:logs.map(log=>(
+                                    <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border relative">
+                                        <button onClick={()=>deleteLog(log.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500">{Lucide('Trash2', {size:18})}</button>
+                                        <div className="flex justify-between items-baseline mb-2"><h3 className="font-bold text-blue-800">{log.displaySummary||log.product}</h3><span className="text-xs bg-slate-100 px-2 py-1 rounded">{log.date}</span></div>
+                                        <div className="flex justify-between text-xs text-slate-500 mb-2">
+                                            <span>{log.cloudSynced?<span className="text-blue-500">✓ 已同步</span>:'⚠ 未同步'}</span>
+                                            {log.totalProfit !== undefined && <span className={log.totalProfit>=0?'text-green-600':'text-red-500'}>獲利: {log.totalProfit}</span>}
+                                        </div>
+                                        <div className="text-sm text-slate-600 space-y-1 bg-slate-50 p-2 rounded">{log.rawHarvests?.map((h,i)=><div key={i} className="flex justify-between border-b last:border-0 border-slate-200 pb-1"><span>{h.product}</span><span>{h.size}/{h.quantity}</span></div>)}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </main>
+
+                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-around z-50">
+                        <button onClick={()=>setCurrentView('form')} className={`flex flex-col items-center ${currentView==='form'?'text-blue-600':'text-gray-400'}`}>{Lucide('Plus', {size:24})}<span className="text-xs mt-1">記一筆</span></button>
+                        <button onClick={()=>setCurrentView('history')} className={`flex flex-col items-center ${currentView==='history'?'text-blue-600':'text-gray-400'}`}>{Lucide('History', {size:24})}<span className="text-xs mt-1">紀錄</span></button>
+                        <button onClick={()=>setCurrentView('settings')} className={`flex flex-col items-center ${currentView==='settings'?'text-blue-600':'text-gray-400'}`}>{Lucide('Settings', {size:24})}<span className="text-xs mt-1">設定</span></button>
+                    </nav>
                 </div>
             );
         }
